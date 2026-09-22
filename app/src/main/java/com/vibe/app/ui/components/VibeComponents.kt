@@ -453,6 +453,27 @@ fun NotificationBell(unreadCount: Int, onClick: () -> Unit) {
 
 enum class VibeTab { HOME, MEMORIES, PROFILE }
 
+/**
+ * Shared behaviour for every bottom bar in the app.
+ *
+ * The three areas are always one tap apart while the member is browsing, and a tap on
+ * the tab of the area you are already inside returns to that area's root - so Settings ->
+ * Profile tab goes back to Profile, and Profile tab -> Profile tab does nothing. The
+ * navigation itself is handled by the caller, which is what keeps this a pure helper.
+ */
+fun onSelectTab(
+    tab: VibeTab,
+    onHome: () -> Unit,
+    onMemories: () -> Unit,
+    onProfile: () -> Unit,
+) {
+    when (tab) {
+        VibeTab.HOME -> onHome()
+        VibeTab.MEMORIES -> onMemories()
+        VibeTab.PROFILE -> onProfile()
+    }
+}
+
 @Composable
 fun VibeBottomBar(
     selected: VibeTab,

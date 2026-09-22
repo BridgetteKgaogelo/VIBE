@@ -57,10 +57,11 @@ import com.vibe.app.ui.components.PrimaryButton
 import com.vibe.app.ui.components.SecondaryButton
 import com.vibe.app.ui.components.SectionHeader
 import com.vibe.app.ui.components.StarRating
-import com.vibe.app.ui.components.VibeBottomBar
 import com.vibe.app.ui.components.VibeCard
-import com.vibe.app.ui.components.VibeTab
 import com.vibe.app.ui.components.VibeTopBar
+import com.vibe.app.ui.components.VibeBottomBar
+import com.vibe.app.ui.components.VibeTab
+import com.vibe.app.ui.components.onSelectTab
 import com.vibe.app.ui.formatDateWithTime
 import com.vibe.app.ui.theme.VibeLilac
 import com.vibe.app.ui.theme.VibeMint
@@ -414,7 +415,13 @@ private fun MemoryTile(memory: Memory, onClick: () -> Unit) {
 /** ------------------------------------------------------ memory detail ----- */
 
 @Composable
-fun MemoryDetailScreen(memoryId: String, onBack: () -> Unit) {
+fun MemoryDetailScreen(
+    memoryId: String,
+    onBack: () -> Unit,
+    onHome: () -> Unit,
+    onMemories: () -> Unit,
+    onProfile: () -> Unit,
+) {
     val context = LocalContext.current
     val viewModel = vibeViewModel {
         MemoryViewModel(it.activityRepository, it.memoryRepository, it.settings)
@@ -452,6 +459,12 @@ fun MemoryDetailScreen(memoryId: String, onBack: () -> Unit) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = { VibeTopBar(title = stringResource(R.string.memory_detail_title), onBack = onBack) },
+        bottomBar = {
+            VibeBottomBar(
+                selected = VibeTab.MEMORIES,
+                onSelect = { tab -> onSelectTab(tab, onHome, onMemories, onProfile) },
+            )
+        },
     ) { padding ->
         Column(
             modifier = Modifier

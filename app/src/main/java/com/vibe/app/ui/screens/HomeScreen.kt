@@ -131,6 +131,10 @@ fun HomeScreen(
 
     var quickActionsOpen by remember { mutableStateOf(false) }
 
+    // Nothing to decide, surprise or plan until the member has a group, so the entry
+    // points that need one open the create-group flow instead of a dead end.
+    val hasGroups = groups.isNotEmpty()
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
@@ -187,7 +191,7 @@ fun HomeScreen(
             item {
                 VibeCard(
                     containerColor = VibeCoral,
-                    onClick = onDecideForUs,
+                    onClick = { if (hasGroups) onDecideForUs() else onCreateGroup() },
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(text = "🗳️", fontSize = 28.sp, modifier = Modifier.padding(end = 12.dp))
@@ -274,7 +278,7 @@ fun HomeScreen(
                     title = stringResource(R.string.quick_decide_title),
                     body = stringResource(R.string.quick_decide_body),
                     accent = VibeLilac,
-                    onClick = onDecideForUs,
+                    onClick = { if (hasGroups) onDecideForUs() else onCreateGroup() },
                 )
             }
             item {
@@ -283,7 +287,9 @@ fun HomeScreen(
                     title = stringResource(R.string.quick_surprise_title),
                     body = stringResource(R.string.quick_surprise_body),
                     accent = VibeMint,
-                    onClick = { groups.firstOrNull()?.let { onSurpriseMe(it.id) } },
+                    onClick = {
+                        if (hasGroups) groups.firstOrNull()?.let { onSurpriseMe(it.id) } else onCreateGroup()
+                    },
                 )
             }
             item {
@@ -308,7 +314,7 @@ fun HomeScreen(
                 Column {
                     QuickActionRow("➕", stringResource(R.string.quick_add_title)) {
                         quickActionsOpen = false
-                        onOpenActivities()
+                        if (hasGroups) onOpenActivities() else onCreateGroup()
                     }
                     QuickActionRow("👥", stringResource(R.string.quick_create_group_title)) {
                         quickActionsOpen = false
@@ -316,11 +322,11 @@ fun HomeScreen(
                     }
                     QuickActionRow("🗳️", stringResource(R.string.quick_start_decision_title)) {
                         quickActionsOpen = false
-                        groups.firstOrNull()?.let { onStartDecision(it.id) }
+                        if (hasGroups) groups.firstOrNull()?.let { onStartDecision(it.id) } else onCreateGroup()
                     }
                     QuickActionRow("🎲", stringResource(R.string.quick_surprise_title)) {
                         quickActionsOpen = false
-                        groups.firstOrNull()?.let { onSurpriseMe(it.id) }
+                        if (hasGroups) groups.firstOrNull()?.let { onSurpriseMe(it.id) } else onCreateGroup()
                     }
                 }
             },

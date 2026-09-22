@@ -100,9 +100,11 @@ buttons are 56 dp so a decision can be made one-handed on a taxi.
 ## Clickable prototype
 
 `prototype/index.html` is the same flow and design system in a single file — open it in any
-browser (or use the live preview) to click through onboarding, a round of Decide For Us, the
-winner screen, offline queueing, Surprise Me, the three languages and both themes without
-building the APK. It is a demo aid, not part of the build.
+browser (or use the live preview) to create a group, add ideas, run a round of Decide For Us,
+crown a winner, plan it, queue a change offline, and switch language and theme without
+building the APK. Like the app, it starts **empty**: no groups, ideas, plans or memories are
+pre-loaded, so the demo account is the only thing you begin with. It is a demo aid, not part
+of the build.
 
 ```bash
 cd prototype && npm install jsdom && node smoke.js   # asserts what each screen shows

@@ -48,6 +48,12 @@ which implements the same `VibeApi` contract as the real service and is backed b
 same RoomDB. You can create groups, add activities, run YES/NO rounds, plan, and store
 memories before a single line of the API is deployed.
 
+**The app starts empty.** Nothing is pre-loaded: no groups, no Vibe List, no plans and
+no memories. The only row the bundled backend creates is the demo account
+(`lerato@vibe.app` / `Vibe2026go`), so sign-in works before you register. Everything on
+screen is what you created - sign in, tap *Create group*, name it, and the group appears
+with an invite code you can share.
+
 ### 2.3 Pointing the app at the deployed API
 
 ```kotlin
@@ -180,5 +186,5 @@ python3 tools/check_strings.py          # see tools/, exits non-zero when a key 
 | `Module was compiled with an incompatible version of Kotlin` | The AndroidX libraries are compiled with a newer Kotlin than the build uses: bump `kotlin` / `ksp` in `gradle/libs.versions.toml`. |
 | `Cleartext HTTP traffic not permitted` | Use HTTPS or add a debug-only exception in `res/xml/network_security_config.xml`. |
 | Notifications never arrive | `google-services.json` missing, or the device did not grant POST_NOTIFICATIONS on Android 13+. |
-| Empty Home screen | Nobody is signed in, or the demo seed was cleared (clear app data to re-seed). |
+| Empty Home screen | Expected on a fresh install: VIBE ships no demo content. Tap *Create group* (or *Join group* with a friend's invite code). |
 | Vote screen says "Only the group owner can start a round" | Correct behaviour: rounds are started by the owner, everyone votes. |

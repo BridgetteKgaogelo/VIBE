@@ -67,6 +67,9 @@ import com.vibe.app.ui.components.SecondaryButton
 import com.vibe.app.ui.components.SectionHeader
 import com.vibe.app.ui.components.VibeCard
 import com.vibe.app.ui.components.VibeTopBar
+import com.vibe.app.ui.components.VibeBottomBar
+import com.vibe.app.ui.components.VibeTab
+import com.vibe.app.ui.components.onSelectTab
 import com.vibe.app.ui.theme.VibeCoral
 import com.vibe.app.ui.theme.VibeLilac
 import com.vibe.app.ui.theme.VibeMint
@@ -170,6 +173,9 @@ fun GroupsScreen(
     onBack: () -> Unit,
     onCreateGroup: () -> Unit,
     onJoinGroup: () -> Unit,
+    onHome: () -> Unit,
+    onMemories: () -> Unit,
+    onProfile: () -> Unit,
 ) {
     val viewModel = vibeViewModel {
         GroupViewModel(it.groupRepository, it.activityRepository, it.decisionRepository)
@@ -179,6 +185,12 @@ fun GroupsScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = { VibeTopBar(title = stringResource(R.string.groups_title), onBack = onBack) },
+        bottomBar = {
+            VibeBottomBar(
+                selected = VibeTab.HOME,
+                onSelect = { tab -> onSelectTab(tab, onHome, onMemories, onProfile) },
+            )
+        },
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
@@ -416,6 +428,9 @@ fun GroupDetailScreen(
     onAddActivity: (String) -> Unit,
     onVote: (String) -> Unit,
     onPlan: (String) -> Unit,
+    onHome: () -> Unit,
+    onMemories: () -> Unit,
+    onProfile: () -> Unit,
 ) {
     val viewModel = vibeViewModel {
         GroupViewModel(it.groupRepository, it.activityRepository, it.decisionRepository)
@@ -432,6 +447,12 @@ fun GroupDetailScreen(
             VibeTopBar(
                 title = group?.name ?: stringResource(R.string.group_vibe_list),
                 onBack = onBack,
+            )
+        },
+        bottomBar = {
+            VibeBottomBar(
+                selected = VibeTab.HOME,
+                onSelect = { tab -> onSelectTab(tab, onHome, onMemories, onProfile) },
             )
         },
         floatingActionButton = {

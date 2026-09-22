@@ -18,6 +18,7 @@
 │                    is refreshed into it, every mutation is queued                         │
 │  data/local/    RoomDB entities, DAOs, codecs, mappers                                    │
 │  data/remote/   Retrofit contract (VibeApi), DTOs, mappers, DemoVibeApi                    │
+│                 (DemoVibeApi starts empty - only the demo account is seeded)               │
 │  data/sync/     SyncQueue + SyncManager (drain on reconnect, report conflicts)             │
 │  core/          service locator, time provider, connectivity, auth interceptor, results   │
 └───────────────────────────────────────────────────────────────────────────────────────────┘

@@ -102,6 +102,17 @@ fun VibeNavHost(
         }
     }
 
+    // The bottom bar behaves like tabs, not like links: Home is the anchor, so the
+    // active tab is always a single entry. Tapping Memories then Profile then Memories
+    // leaves [Home, Memories] behind - never a growing pile of duplicates - and Back
+    // from any tab lands on Home.
+    val selectTab: (String) -> Unit = { route ->
+        navController.navigate(route) {
+            popUpTo(Routes.HOME)
+            launchSingleTop = true
+        }
+    }
+
     NavHost(navController = navController, startDestination = startDestination) {
 
         composable(Routes.ONBOARDING) {
@@ -125,8 +136,8 @@ fun VibeNavHost(
                 onStartDecision = { navController.navigate(Routes.decisionStart(it)) },
                 onDecideForUs = { navController.navigate(Routes.activities(null)) },
                 onSurpriseMe = { navController.navigate(Routes.surprise(it)) },
-                onMemories = { navController.navigate(Routes.MEMORIES) },
-                onProfile = { navController.navigate(Routes.PROFILE) },
+                onMemories = { selectTab(Routes.MEMORIES) },
+                onProfile = { selectTab(Routes.PROFILE) },
             )
         }
 
@@ -136,6 +147,9 @@ fun VibeNavHost(
                 onBack = { navController.popBackStack() },
                 onCreateGroup = { navController.navigate(Routes.CREATE_GROUP) },
                 onJoinGroup = { navController.navigate(Routes.JOIN_GROUP) },
+                onHome = { selectTab(Routes.HOME) },
+                onMemories = { selectTab(Routes.MEMORIES) },
+                onProfile = { selectTab(Routes.PROFILE) },
             )
         }
         composable(Routes.CREATE_GROUP) {
@@ -162,6 +176,9 @@ fun VibeNavHost(
                 onAddActivity = { navController.navigate(Routes.activityNew(it)) },
                 onVote = { navController.navigate(Routes.decisionVote(it)) },
                 onPlan = { navController.navigate(Routes.plan(it)) },
+                onHome = { selectTab(Routes.HOME) },
+                onMemories = { selectTab(Routes.MEMORIES) },
+                onProfile = { selectTab(Routes.PROFILE) },
             )
         }
 
@@ -178,6 +195,9 @@ fun VibeNavHost(
                 onAddActivity = {
                     navController.navigate(Routes.activityNew(groupId ?: Routes.ALL_GROUPS))
                 },
+                onHome = { selectTab(Routes.HOME) },
+                onMemories = { selectTab(Routes.MEMORIES) },
+                onProfile = { selectTab(Routes.PROFILE) },
             )
         }
         composable(
@@ -281,8 +301,8 @@ fun VibeNavHost(
             MemoriesScreen(
                 onBack = { navController.popBackStack() },
                 onOpenMemory = { navController.navigate(Routes.memoryDetail(it)) },
-                onHome = toHome,
-                onProfile = { navController.navigate(Routes.PROFILE) },
+                onHome = { selectTab(Routes.HOME) },
+                onProfile = { selectTab(Routes.PROFILE) },
             )
         }
         composable(
@@ -290,11 +310,22 @@ fun VibeNavHost(
             arguments = listOf(navArgument("memoryId") { type = NavType.StringType }),
         ) { entry ->
             val memoryId = entry.arguments?.getString("memoryId").orEmpty()
-            MemoryDetailScreen(memoryId = memoryId, onBack = { navController.popBackStack() })
+            MemoryDetailScreen(
+                memoryId = memoryId,
+                onBack = { navController.popBackStack() },
+                onHome = { selectTab(Routes.HOME) },
+                onMemories = { selectTab(Routes.MEMORIES) },
+                onProfile = { selectTab(Routes.PROFILE) },
+            )
         }
 
         composable(Routes.NOTIFICATIONS) {
-            NotificationsScreen(onBack = { navController.popBackStack() })
+            NotificationsScreen(
+                onBack = { navController.popBackStack() },
+                onHome = { selectTab(Routes.HOME) },
+                onMemories = { selectTab(Routes.MEMORIES) },
+                onProfile = { selectTab(Routes.PROFILE) },
+            )
         }
 
         composable(Routes.PROFILE) {
@@ -306,8 +337,8 @@ fun VibeNavHost(
                 onSettings = { navController.navigate(Routes.SETTINGS) },
                 onLanguage = { navController.navigate(Routes.LANGUAGE) },
                 onHelp = { navController.navigate(Routes.HELP) },
-                onHome = toHome,
-                onMemories = { navController.navigate(Routes.MEMORIES) },
+                onHome = { selectTab(Routes.HOME) },
+                onMemories = { selectTab(Routes.MEMORIES) },
             )
         }
         composable(Routes.EDIT_PROFILE) {

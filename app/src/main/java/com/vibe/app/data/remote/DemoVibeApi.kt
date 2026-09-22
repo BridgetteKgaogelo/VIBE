@@ -47,12 +47,17 @@ import kotlin.random.Random
  * marker is running against a real HTTPS deployment or without a network at all.
  * Three things make it useful for a demo or a PoE session:
  *
- *  1. it is Room-backed, so the seed data survives process death;
+ *  1. it is Room-backed, so whatever you create survives process death;
  *  2. it refuses what the real API refuses (403 for non-owners, 422 for a round
  *     with fewer than two ideas, 404 for an unknown invite code, 409 for a
  *     duplicate email), which keeps the error paths honest;
  *  3. after your own vote it lets the other members answer, one at a time, so
- *     the participation counter and the auto-close rule can be seen working.
+ *     the participation counter and the auto-close rule can be seen working in a
+ *     group that has more than one member.
+ *
+ * It starts with **no content at all**: no groups, no ideas, no plans, no memories
+ * and no notifications. The only seeded row is the demo account below, so the demo
+ * sign-in works; everything else is created by the member.
  *
  * Passwords are never persisted here either: the demo login simply resolves the
  * account by email, exactly as documented in docs/SETUP.md.
@@ -70,19 +75,18 @@ class DemoVibeApi(
         const val DEMO_DISPLAY_NAME = "Lerato"
         const val DEMO_EMAIL = "lerato@vibe.app"
         const val SIMULATED_VOTE_DELAY_MS = 1_600L
-        private const val DAY_MILLIS = 24L * 60L * 60L * 1000L
         private const val ROUND_DEADLINE_HOURS = 24L
     }
 
-    private val seedLock = Mutex()
+    private val accountLock = Mutex()
 
     @Volatile
-    private var seeded = false
+    private var demoAccountReady = false
 
     // ------------------------------------------------------------- auth
 
     override suspend fun register(body: RegisterRequest): AuthResponse {
-        ensureSeeded()
+        ensureDemoAccount()
         val email = body.email.trim().lowercase(Locale.ROOT)
         if (db.userDao().byEmail(email) != null) {
             throw httpError(409, "An account already exists for this email.")
@@ -107,7 +111,7 @@ class DemoVibeApi(
     }
 
     override suspend fun login(body: LoginRequest): AuthResponse {
-        ensureSeeded()
+        ensureDemoAccount()
         val email = body.email.trim().lowercase(Locale.ROOT)
         val user = db.userDao().byEmail(email)
             ?: throw httpError(401, "Email or password is incorrect.")
@@ -115,7 +119,7 @@ class DemoVibeApi(
     }
 
     override suspend fun googleSignIn(body: GoogleAuthRequest): AuthResponse {
-        ensureSeeded()
+        ensureDemoAccount()
         // A real deployment posts the ID token to Google's tokeninfo endpoint and
         // checks aud/iss/exp before issuing a VIBE session (see API docs).
         val user = db.userDao().byId(DEMO_USER_ID) ?: throw httpError(401, "Google sign-in failed.")
@@ -123,7 +127,7 @@ class DemoVibeApi(
     }
 
     override suspend fun refresh(body: RefreshRequest): AuthResponse {
-        ensureSeeded()
+        ensureDemoAccount()
         val user = db.userDao().byId(DEMO_USER_ID) ?: throw httpError(401, "Session expired.")
         return authResponse(user)
     }
@@ -158,7 +162,7 @@ class DemoVibeApi(
     // ------------------------------------------------------------ groups
 
     override suspend fun groups(): List<GroupDto> {
-        ensureSeeded()
+        ensureDemoAccount()
         val userId = currentUser().id
         val memberships = db.groupDao().membershipsOf(userId).map { it.groupId }.toSet()
         return db.groupDao().all()
@@ -168,14 +172,14 @@ class DemoVibeApi(
     }
 
     override suspend fun group(groupId: String): GroupDto {
-        ensureSeeded()
+        ensureDemoAccount()
         val userId = currentUser().id
         val entity = db.groupDao().byId(groupId) ?: throw httpError(404, "Group not found.")
         return groupDto(entity, userId)
     }
 
     override suspend fun createGroup(body: CreateGroupRequest): GroupDto {
-        ensureSeeded()
+        ensureDemoAccount()
         val userId = currentUser().id
         val now = time.nowMillis()
         val groupId = body.clientId?.takeIf { it.isNotBlank() } ?: Ids.newId()
@@ -210,7 +214,7 @@ class DemoVibeApi(
     }
 
     override suspend fun joinGroup(body: JoinGroupRequest): GroupDto {
-        ensureSeeded()
+        ensureDemoAccount()
         val userId = currentUser().id
         val code = InviteCode.normalise(body.inviteCode)
         if (!InviteCode.isValid(code)) throw httpError(404, "That invite code does not match a group.")
@@ -244,7 +248,7 @@ class DemoVibeApi(
     }
 
     override suspend fun leaveGroup(groupId: String): Response<Unit> {
-        ensureSeeded()
+        ensureDemoAccount()
         val userId = currentUser().id
         val entity = db.groupDao().byId(groupId) ?: throw httpError(404, "Group not found.")
         if (entity.ownerId == userId) {
@@ -258,20 +262,20 @@ class DemoVibeApi(
     // -------------------------------------------------------- activities
 
     override suspend fun activities(groupId: String): List<ActivityDto> {
-        ensureSeeded()
+        ensureDemoAccount()
         return db.activityDao().byGroup(groupId)
             .sortedByDescending { it.createdAt }
             .map { it.toDto() }
     }
 
     override suspend fun myActivities(): List<ActivityDto> {
-        ensureSeeded()
+        ensureDemoAccount()
         val userId = currentUser().id
         return db.activityDao().mine(userId).map { it.toDto() }
     }
 
     override suspend fun addActivity(groupId: String, body: UpsertActivityRequest): ActivityDto {
-        ensureSeeded()
+        ensureDemoAccount()
         val user = currentUser()
         val now = time.nowMillis()
         val entity = ActivityEntity(
@@ -302,7 +306,7 @@ class DemoVibeApi(
     }
 
     override suspend fun updateActivity(activityId: String, body: UpsertActivityRequest): ActivityDto {
-        ensureSeeded()
+        ensureDemoAccount()
         val existing = db.activityDao().byId(activityId) ?: throw httpError(404, "Activity not found.")
         val updated = existing.copy(
             title = body.title.trim(),
@@ -316,7 +320,7 @@ class DemoVibeApi(
     }
 
     override suspend fun deleteActivity(activityId: String): Response<Unit> {
-        ensureSeeded()
+        ensureDemoAccount()
         db.activityDao().delete(activityId)
         return Response.success(Unit)
     }
@@ -324,7 +328,7 @@ class DemoVibeApi(
     // --------------------------------------------------------- decisions
 
     override suspend fun startDecision(groupId: String, body: StartDecisionRequest): DecisionDto {
-        ensureSeeded()
+        ensureDemoAccount()
         val user = currentUser()
         val group = db.groupDao().byId(groupId) ?: throw httpError(404, "Group not found.")
         if (group.ownerId != user.id) throw httpError(403, "Only the group owner can start a round.")
@@ -363,13 +367,13 @@ class DemoVibeApi(
     }
 
     override suspend fun decision(decisionId: String): DecisionDto {
-        ensureSeeded()
+        ensureDemoAccount()
         val entity = db.decisionDao().byId(decisionId) ?: throw httpError(404, "Decision not found.")
         return decisionDto(entity)
     }
 
     override suspend fun castVote(decisionId: String, body: CastVoteRequest): VoteAckDto {
-        ensureSeeded()
+        ensureDemoAccount()
         val user = currentUser()
         val decision = db.decisionDao().byId(decisionId) ?: throw httpError(404, "Decision not found.")
         if (decision.state != DecisionState.OPEN.name) {
@@ -397,14 +401,14 @@ class DemoVibeApi(
     }
 
     override suspend fun closeDecision(decisionId: String): DecisionDto {
-        ensureSeeded()
+        ensureDemoAccount()
         val decision = db.decisionDao().byId(decisionId) ?: throw httpError(404, "Decision not found.")
         val settled = settle(decision)
         return decisionDto(settled)
     }
 
     override suspend fun surprise(decisionId: String, body: SurpriseRequest): ActivityDto {
-        ensureSeeded()
+        ensureDemoAccount()
         val decision = db.decisionDao().byId(decisionId) ?: throw httpError(404, "Decision not found.")
         val candidates = db.activityDao().byGroup(decision.groupId).map { it.toDomainIdea() }
         val pick = DecisionEngine.surpriseMe(candidates, body.rejectedIds.toSet())
@@ -415,12 +419,12 @@ class DemoVibeApi(
     // -------------------------------------------------------------- plans
 
     override suspend fun plans(groupId: String): List<PlanDto> {
-        ensureSeeded()
+        ensureDemoAccount()
         return db.planDao().observeByGroup(groupId).firstValue().map { it.toDto() }
     }
 
     override suspend fun savePlan(body: SavePlanRequest): PlanDto {
-        ensureSeeded()
+        ensureDemoAccount()
         val user = currentUser()
         val activity = db.activityDao().byId(body.activityId) ?: throw httpError(404, "Activity not found.")
         val existing = db.planDao().latestForActivity(body.activityId)
@@ -439,7 +443,7 @@ class DemoVibeApi(
     }
 
     override suspend fun completePlan(planId: String, body: CompletePlanRequest): MemoryDto {
-        ensureSeeded()
+        ensureDemoAccount()
         val user = currentUser()
         val plan = db.planDao().byId(planId) ?: throw httpError(404, "Plan not found.")
         db.planDao().upsert(plan.copy(completed = true))
@@ -470,14 +474,14 @@ class DemoVibeApi(
     }
 
     override suspend fun memories(groupId: String): List<MemoryDto> {
-        ensureSeeded()
+        ensureDemoAccount()
         return db.memoryDao().observeByGroup(groupId).firstValue().map { it.toDto() }
     }
 
     // ------------------------------------------- notifications and devices
 
     override suspend fun notifications(): List<NotificationDto> {
-        ensureSeeded()
+        ensureDemoAccount()
         val userId = currentUser().id
         return db.notificationDao().observeAll().firstValue()
             .filter { it.userId == userId }
@@ -802,259 +806,23 @@ class DemoVibeApi(
     private fun usernameFrom(email: String): String =
         email.substringBefore('@').filter { it.isLetterOrDigit() }.lowercase(Locale.ROOT).ifBlank { "viber" }
 
-    // ------------------------------------------------------------- seeding
+    // ------------------------------------------------------- demo account
 
-    private suspend fun ensureSeeded() {
-        if (seeded) return
-        seedLock.withLock {
-            if (seeded) return
-            if (db.groupDao().all().isEmpty()) {
-                seedDemoData()
-            } else if (db.userDao().byId(DEMO_USER_ID) == null) {
+    /**
+     * The bundled backend starts empty: the only thing it makes sure of is that the
+     * demo account exists, so "log in as lerato@vibe.app" works before registration.
+     * Groups, ideas, plans, memories and notifications are never created here - the
+     * member creates them, and they live in RoomDB exactly like the real API's rows.
+     */
+    private suspend fun ensureDemoAccount() {
+        if (demoAccountReady) return
+        accountLock.withLock {
+            if (demoAccountReady) return
+            if (db.userDao().byId(DEMO_USER_ID) == null) {
                 db.userDao().upsert(demoUserEntity())
             }
-            seeded = true
+            demoAccountReady = true
         }
-    }
-
-    private suspend fun seedDemoData() {
-        val now = time.nowMillis()
-        val day = DAY_MILLIS
-
-        db.userDao().upsert(demoUserEntity())
-        db.userDao().upsert(
-            UserEntity(
-                id = "u-thandi",
-                displayName = "Thandi",
-                username = "thandi",
-                email = "thandi@vibe.app",
-                language = "zu",
-                themeMode = "DARK",
-                notificationsEnabled = true,
-                privacyMembersOnly = true,
-                photoUri = null,
-                createdAt = now - 60 * day,
-            ),
-        )
-
-        suspend fun seedGroup(
-            id: String,
-            name: String,
-            icon: String,
-            code: String,
-            ownerId: String,
-            ownerName: String,
-            memberNames: List<Pair<String, String>>,
-            activities: List<Triple<String, String, String>>,
-        ) {
-            db.groupDao().upsert(
-                GroupEntity(
-                    id = id,
-                    name = name,
-                    icon = icon,
-                    inviteCode = code,
-                    ownerId = ownerId,
-                    createdAt = now - 30 * day,
-                    role = GroupRole.MEMBER.name,
-                    memberCount = memberNames.size + 1,
-                    activityCount = activities.size,
-                    syncState = SyncState.SYNCED.name,
-                    cachedAt = now,
-                ),
-            )
-            val members = buildList {
-                add(
-                    GroupMemberEntity(
-                        groupId = id,
-                        userId = ownerId,
-                        displayName = ownerName,
-                        role = GroupRole.OWNER.name,
-                        photoUri = null,
-                        joinedAt = now - 30 * day,
-                    ),
-                )
-                memberNames.forEachIndexed { index, (userId, displayName) ->
-                    add(
-                        GroupMemberEntity(
-                            groupId = id,
-                            userId = userId,
-                            displayName = displayName,
-                            role = GroupRole.MEMBER.name,
-                            photoUri = null,
-                            joinedAt = now - (25 - index) * day,
-                        ),
-                    )
-                }
-            }
-            db.groupDao().upsertMembers(members)
-            activities.forEachIndexed { index, (title, iconEmoji, creatorId) ->
-                val creator = members.firstOrNull { it.userId == creatorId }
-                db.activityDao().upsert(
-                    ActivityEntity(
-                        id = "act-$id-$index",
-                        groupId = id,
-                        title = title,
-                        description = "",
-                        icon = iconEmoji,
-                        status = ActivityStatus.SUGGESTED.name,
-                        createdBy = creatorId,
-                        createdByName = creator?.displayName ?: DEMO_DISPLAY_NAME,
-                        createdAt = now - (10 - index.coerceAtMost(9)) * day,
-                        favourite = index == 0,
-                        yesVotes = 0,
-                        participantCount = 0,
-                        syncState = SyncState.SYNCED.name,
-                    ),
-                )
-            }
-        }
-
-        seedGroup(
-            id = "g-friday",
-            name = "Friday Night Crew",
-            icon = "🎉",
-            code = "FRYDAY",
-            ownerId = DEMO_USER_ID,
-            ownerName = DEMO_DISPLAY_NAME,
-            memberNames = listOf("u-thandi" to "Thandi", "u-sipho" to "Sipho", "u-naledi" to "Naledi", "u-kyle" to "Kyle"),
-            activities = listOf(
-                Triple("Go for pizza", "🍕", "u-thandi"),
-                Triple("Bowling night", "🎳", "u-sipho"),
-                Triple("Movie marathon", "🍿", "u-naledi"),
-                Triple("Braai at the beach", "🏖️", DEMO_USER_ID),
-            ),
-        )
-        seedGroup(
-            id = "g-girls",
-            name = "Girls Trip",
-            icon = "💗",
-            code = "TRPS24",
-            ownerId = "u-thandi",
-            ownerName = "Thandi",
-            memberNames = listOf("u-naledi" to "Naledi", "u-zanele" to "Zanele"),
-            activities = listOf(
-                Triple("Road trip to Durban", "🚗", "u-thandi"),
-                Triple("Spa morning", "☕", "u-naledi"),
-            ),
-        )
-        seedGroup(
-            id = "g-game",
-            name = "Game Squad",
-            icon = "🎮",
-            code = "SQUAD7",
-            ownerId = DEMO_USER_ID,
-            ownerName = DEMO_DISPLAY_NAME,
-            memberNames = listOf("u-kyle" to "Kyle", "u-sipho" to "Sipho"),
-            activities = listOf(
-                Triple("FIFA tournament", "🎮", DEMO_USER_ID),
-                Triple("Pizza and board games", "🍕", "u-kyle"),
-            ),
-        )
-
-        // One finished plan with a memory, so Memories and the profile statistics
-        // are not empty on a first run.
-        db.planDao().upsert(
-            PlanEntity(
-                id = "plan-game-1",
-                groupId = "g-game",
-                activityId = "act-g-game-0",
-                activityTitle = "FIFA tournament",
-                activityIcon = "🎮",
-                scheduledAtEpochMillis = now - 12 * day,
-                completed = true,
-                createdBy = DEMO_USER_ID,
-            ),
-        )
-        db.memoryDao().upsert(
-            MemoryEntity(
-                id = "mem-game-1",
-                groupId = "g-game",
-                planId = "plan-game-1",
-                activityId = "act-g-game-0",
-                activityTitle = "FIFA tournament",
-                activityIcon = "🎮",
-                completedAtEpochMillis = now - 12 * day,
-                caption = "Kyle finally lost a final. Rematch loading.",
-                rating = 5,
-                photoUrisCsv = "",
-                createdBy = "u-kyle",
-                syncState = SyncState.SYNCED.name,
-            ),
-        )
-        db.activityDao().updateStatus("act-g-game-0", ActivityStatus.COMPLETED.name)
-        db.memoryDao().upsert(
-            MemoryEntity(
-                id = "mem-friday-1",
-                groupId = "g-friday",
-                planId = "plan-friday-1",
-                activityId = "act-g-friday-2",
-                activityTitle = "Movie marathon",
-                activityIcon = "🍿",
-                completedAtEpochMillis = now - 21 * day,
-                caption = "Third row, extra popcorn, nobody agreed on the last film.",
-                rating = 4,
-                photoUrisCsv = "",
-                createdBy = "u-naledi",
-                syncState = SyncState.SYNCED.name,
-            ),
-        )
-        db.planDao().upsert(
-            PlanEntity(
-                id = "plan-friday-1",
-                groupId = "g-friday",
-                activityId = "act-g-friday-2",
-                activityTitle = "Movie marathon",
-                activityIcon = "🍿",
-                scheduledAtEpochMillis = now - 21 * day,
-                completed = true,
-                createdBy = "u-naledi",
-            ),
-        )
-
-        db.notificationDao().upsert(
-            listOf(
-                NotificationEntity(
-                    id = "notif-1",
-                    userId = DEMO_USER_ID,
-                    title = "Thandi added you to Girls Trip",
-                    body = "Tap to see the Vibe List.",
-                    type = NotificationType.INVITE.name,
-                    read = false,
-                    createdAt = now - 2 * day,
-                    groupId = "g-girls",
-                ),
-                NotificationEntity(
-                    id = "notif-2",
-                    userId = DEMO_USER_ID,
-                    title = "Sipho added Bowling night",
-                    body = "Friday Night Crew has a new idea.",
-                    type = NotificationType.NEW_ACTIVITY.name,
-                    read = false,
-                    createdAt = now - day,
-                    groupId = "g-friday",
-                ),
-                NotificationEntity(
-                    id = "notif-3",
-                    userId = DEMO_USER_ID,
-                    title = "Vote closes tonight",
-                    body = "Friday Night Crew is waiting for your YES or NO.",
-                    type = NotificationType.DEADLINE.name,
-                    read = true,
-                    createdAt = now - 6 * 60L * 60L * 1000L,
-                    groupId = "g-friday",
-                ),
-                NotificationEntity(
-                    id = "notif-4",
-                    userId = DEMO_USER_ID,
-                    title = "Winner: FIFA tournament",
-                    body = "Saved to Memories with a 5/5 rating.",
-                    type = NotificationType.WINNER.name,
-                    read = true,
-                    createdAt = now - 12 * day,
-                    groupId = "g-game",
-                ),
-            ),
-        )
     }
 }
 

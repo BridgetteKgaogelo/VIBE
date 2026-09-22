@@ -58,6 +58,9 @@ import com.vibe.app.ui.components.SecondaryButton
 import com.vibe.app.ui.components.SectionHeader
 import com.vibe.app.ui.components.VibeCard
 import com.vibe.app.ui.components.VibeTopBar
+import com.vibe.app.ui.components.VibeBottomBar
+import com.vibe.app.ui.components.VibeTab
+import com.vibe.app.ui.components.onSelectTab
 import com.vibe.app.ui.theme.VibeCoral
 import com.vibe.app.ui.theme.VibeLilac
 import com.vibe.app.ui.theme.VibeMint
@@ -196,6 +199,9 @@ fun ActivitiesScreen(
     onBack: () -> Unit,
     onOpenActivity: (String) -> Unit,
     onAddActivity: () -> Unit,
+    onHome: () -> Unit,
+    onMemories: () -> Unit,
+    onProfile: () -> Unit,
 ) {
     val viewModel = vibeViewModel { ActivitiesViewModel(it.activityRepository, it.decisionRepository, it.settings) }
     val activities by viewModel.activities(groupId).collectAsStateWithLifecycle()
@@ -203,6 +209,12 @@ fun ActivitiesScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = { VibeTopBar(title = stringResource(R.string.activities_title), onBack = onBack) },
+        bottomBar = {
+            VibeBottomBar(
+                selected = VibeTab.HOME,
+                onSelect = { tab -> onSelectTab(tab, onHome, onMemories, onProfile) },
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onAddActivity,

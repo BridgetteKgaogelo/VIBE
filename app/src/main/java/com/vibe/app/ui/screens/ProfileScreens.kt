@@ -57,10 +57,11 @@ import com.vibe.app.ui.components.PrimaryButton
 import com.vibe.app.ui.components.SecondaryButton
 import com.vibe.app.ui.components.SectionHeader
 import com.vibe.app.ui.components.StatTile
-import com.vibe.app.ui.components.VibeBottomBar
 import com.vibe.app.ui.components.VibeCard
-import com.vibe.app.ui.components.VibeTab
 import com.vibe.app.ui.components.VibeTopBar
+import com.vibe.app.ui.components.VibeBottomBar
+import com.vibe.app.ui.components.VibeTab
+import com.vibe.app.ui.components.onSelectTab
 import com.vibe.app.ui.theme.VibeLilac
 import com.vibe.app.ui.theme.VibeMint
 import com.vibe.app.ui.vibeViewModel
@@ -792,7 +793,12 @@ private fun Faq(question: String, answer: String) {
 /** ------------------------------------------------------ notifications ----- */
 
 @Composable
-fun NotificationsScreen(onBack: () -> Unit) {
+fun NotificationsScreen(
+    onBack: () -> Unit,
+    onHome: () -> Unit,
+    onMemories: () -> Unit,
+    onProfile: () -> Unit,
+) {
     val viewModel = vibeViewModel {
         ProfileViewModel(
             it.authRepository,
@@ -807,6 +813,12 @@ fun NotificationsScreen(onBack: () -> Unit) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = { VibeTopBar(title = stringResource(R.string.notifications_title), onBack = onBack) },
+        bottomBar = {
+            VibeBottomBar(
+                selected = VibeTab.HOME,
+                onSelect = { tab -> onSelectTab(tab, onHome, onMemories, onProfile) },
+            )
+        },
     ) { padding ->
         Column(
             modifier = Modifier
