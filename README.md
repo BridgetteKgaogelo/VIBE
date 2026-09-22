@@ -97,6 +97,17 @@ labels and the alerts; the dark midnight-navy theme is the default with a light 
 "follow the system" option. Icon-only controls carry content descriptions, and the YES/NO
 buttons are 56 dp so a decision can be made one-handed on a taxi.
 
+## Clickable prototype
+
+`prototype/index.html` is the same flow and design system in a single file — open it in any
+browser (or use the live preview) to click through onboarding, a round of Decide For Us, the
+winner screen, offline queueing, Surprise Me, the three languages and both themes without
+building the APK. It is a demo aid, not part of the build.
+
+```bash
+cd prototype && npm install jsdom && node smoke.js   # asserts what each screen shows
+```
+
 ## Documentation
 
 * [`docs/SETUP.md`](docs/SETUP.md) - build, run, deploy, demonstrate

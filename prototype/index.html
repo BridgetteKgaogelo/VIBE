@@ -1,0 +1,717 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VIBE — clickable prototype</title>
+<style>
+  :root {
+    --navy:#0B1026; --elevated:#141B3D; --soft:#1E2749; --coral:#FF6B6B; --coral-press:#E85555;
+    --lilac:#B79CFF; --mint:#4FD1A5; --ink:#F4F6FF; --muted:#A6ADD1; --blush:#FFF4F8;
+    --radius:20px;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; gap:32px;
+    background:radial-gradient(circle at 20% 0%, #1b2350 0%, #05070f 60%);
+    font-family:"Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif; color:var(--ink);
+    padding:24px; flex-wrap:wrap;
+  }
+  .stage { display:flex; flex-direction:column; align-items:center; gap:12px; }
+  .phone {
+    width:390px; height:800px; background:var(--navy); border-radius:38px; padding:14px 14px 0;
+    box-shadow:0 30px 70px rgba(0,0,0,.55), 0 0 0 10px #0a0d1c, 0 0 0 12px #1c2340;
+    display:flex; flex-direction:column; overflow:hidden; position:relative;
+  }
+  .statusbar { display:flex; justify-content:space-between; font-size:11px; color:var(--muted); padding:2px 10px 6px; }
+  .screen { flex:1; overflow-y:auto; padding:6px 16px 96px; scrollbar-width:thin; }
+  .screen::-webkit-scrollbar { width:6px } .screen::-webkit-scrollbar-thumb { background:#2b3560; border-radius:3px }
+  .bottom {
+    position:absolute; left:14px; right:14px; bottom:0; height:72px; background:linear-gradient(transparent, #0B1026 30%);
+    display:flex; align-items:flex-end; justify-content:space-around; padding-bottom:10px;
+  }
+  .tab { background:none; border:0; color:var(--muted); font:600 11px/1.4 inherit; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; }
+  .tab.active { color:var(--coral) }
+  .tab .dot { font-size:18px }
+  h1 { font-size:26px; margin:10px 0 2px; letter-spacing:-.4px }
+  h2 { font-size:17px; margin:18px 0 8px }
+  p  { color:var(--muted); font-size:13.5px; line-height:1.5; margin:6px 0 }
+  .card { background:var(--elevated); border-radius:var(--radius); padding:14px; margin:10px 0; }
+  .card.tap { cursor:pointer; transition:transform .08s ease, background .2s }
+  .card.tap:active { transform:scale(.985); background:#18204a }
+  .row { display:flex; align-items:center; gap:10px }
+  .grow { flex:1 }
+  .emoji { font-size:22px; width:34px; text-align:center }
+  .title { font-weight:700; font-size:14.5px }
+  .sub { color:var(--muted); font-size:12px }
+  button.primary, button.ghost, button.pill, .pill {
+    font:700 14px inherit; border:0; border-radius:16px; padding:13px 16px; cursor:pointer; transition:filter .15s, transform .08s
+  }
+  button.primary { background:var(--coral); color:#2a0b12; width:100%; margin-top:10px }
+  button.primary:active { background:var(--coral-press); transform:scale(.99) }
+  button.ghost { background:var(--soft); color:var(--ink); width:100%; margin-top:8px }
+  .pill { display:inline-block; background:var(--soft); color:var(--muted); font-size:12px; padding:7px 12px; border-radius:999px; margin:4px 6px 4px 0 }
+  .pill.on { background:rgba(255,107,107,.18); color:var(--coral); box-shadow:inset 0 0 0 1px rgba(255,107,107,.5) }
+  .yesbtn, .nobtn { flex:1; font:800 16px inherit; padding:18px 0; border:0; border-radius:18px; cursor:pointer }
+  .yesbtn { background:var(--mint); color:#04281d } .nobtn { background:var(--soft); color:var(--ink) }
+  .topbar { display:flex; align-items:center; gap:10px; padding:6px 0 2px; position:sticky; top:0; background:var(--navy); z-index:5 }
+  .back { background:none; border:0; color:var(--ink); font-size:20px; cursor:pointer; padding:4px 8px 4px 0 }
+  .fab { position:absolute; right:22px; bottom:88px; width:58px; height:58px; border-radius:50%; border:0; background:var(--coral); color:#2a0b12; font-size:26px; line-height:1; cursor:pointer; box-shadow:0 12px 28px rgba(255,107,107,.35) }
+  .bar { height:8px; background:var(--soft); border-radius:99px; overflow:hidden; margin:8px 0 }
+  .bar > i { display:block; height:100%; background:var(--mint); transition:width .35s }
+  .banner { background:rgba(183,156,255,.14); color:var(--lilac); font-size:12px; padding:8px 12px; border-radius:14px; margin:6px 0 }
+  .hidden { display:none !important }
+  .center { text-align:center }
+  .logo { font-size:44px; text-align:center; margin-top:26px }
+  .wordmark { font-size:34px; font-weight:800; letter-spacing:6px; text-align:center;
+    background:linear-gradient(90deg,var(--coral),var(--lilac),var(--mint)); -webkit-background-clip:text; background-clip:text; color:transparent }
+  .confetti { position:absolute; inset:0; pointer-events:none; overflow:hidden }
+  .confetti i { position:absolute; top:-12px; width:8px; height:14px; border-radius:2px; animation:fall linear infinite }
+  @keyframes fall { to { transform:translateY(860px) rotate(540deg) } }
+  .votebox { font-size:15px; padding:14px; }
+  .muted { color:var(--muted) }
+  .check { color:var(--mint) }
+  .stars { color:#FFD166; font-size:20px; letter-spacing:2px; cursor:pointer }
+  .notes { width:300px; color:#c8cdea; font-size:12.5px; line-height:1.6 }
+  .notes h3 { color:var(--ink); font-size:15px }
+  .notes ol { padding-left:18px } .notes li { margin:6px 0 }
+  .kbd { background:#1a2246; border-radius:6px; padding:1px 6px; font-family:ui-monospace, monospace; font-size:11.5px }
+  input, textarea { width:100%; background:var(--elevated); border:1px solid #26305c; color:var(--ink);
+    border-radius:14px; padding:13px; font:inherit; margin-top:8px }
+  input:focus, textarea:focus { outline:1px solid var(--coral) }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="phone" id="phone">
+    <div class="statusbar"><span>9:41</span><span id="offlineTag" class="hidden">✈️ offline</span><span id="statusRight">VIBE · 🌙</span></div>
+    <div class="screen" id="screen"></div>
+    <div class="bottom">
+      <button class="tab" data-tab="home"><span class="dot">🏠</span>Home</button>
+      <button class="tab" data-tab="memories"><span class="dot">📸</span>Memories</button>
+      <button class="tab" data-tab="profile"><span class="dot">🙂</span>Profile</button>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <h3>VIBE — clickable prototype</h3>
+  <p>This is the Android app's flow and design system reproduced in one HTML file so it can
+     be clicked through before the APK is built: same palette, same screens, same decision
+     rules (`domain/DecisionEngine.kt`).</p>
+  <ol>
+    <li><b>Get started</b> → sign in (demo member <i>Lerato</i>).</li>
+    <li>Open <b>Friday Night Crew</b> → <b>Decide For Us</b>.</li>
+    <li>Vote NO/YES on each idea. The other members "vote" after you, the round closes when
+        everybody has, and results are revealed only then.</li>
+    <li>Winner screen → <b>Plan it</b> → <b>Mark as done</b> with a rating and caption.</li>
+    <li>Top-right <span class="kbd">✈️</span> flips airplane mode: add an idea or vote while
+        offline and watch "1 change waiting to sync" drain when you come back.</li>
+    <li><b>Surprise Me</b>, the filter pills, <b>Settings → Language</b> (English, isiZulu,
+        Sesotho) and the theme switch are all live.</li>
+  </ol>
+  <p class="muted">The real client is Kotlin/Compose in <span class="kbd">app/</span>; this file
+     is a demo aid, not part of the build.</p>
+</div>
+
+<script>
+/* ------------------------------------------------------------------ i18n */
+const S = {
+  en:{ home:"Home", memories:"Memories", profile:"Profile", groups:"Your groups", quick:"Quick Start",
+       cantdecide:"Can't Decide?", surprise:"Surprise Me", myactivities:"My Activities",
+       create:"Create New Group", join:"Join with a code", vibelist:"Vibe List",
+       addidea:"Add an idea", start:"Start decision", votenow:"Vote now",
+       round:"Round", voted:"voted", still:"still in", waiting:"Waiting for the rest of the group…",
+       closeearly:"Enough votes to decide — close the round", close:"Close the round",
+       winner:"The group has a winner", planit:"Plan it", addmemory:"Add to memories",
+       summary:"Vote summary", yes:"YES", no:"NO", plan:"Plan", when:"Pick a date and time",
+       done:"Mark as done", caption:"Caption", rate:"Rate the night", save:"Save memory",
+       settings:"Settings", language:"Language", theme:"Theme", light:"Light", dark:"Dark",
+       signout:"Sign out", notifications:"Notifications", offline:"Waiting to sync",
+       allsynced:"Everything is in sync.", members:"members", ideas:"ideas", addedby:"Added by" },
+  zu:{ home:"Ikhaya", memories:"Izinkumbulo", profile:"Iphrofayili", groups:"Amaqembu akho", quick:"Qala Ngokushesha",
+       cantdecide:"Awukwazi ukunquma?", surprise:"Ngimangaze", myactivities:"Imisebenzi yami",
+       create:"Dala iqembu", join:"Joyina ngekhodi", vibelist:"Uhlu lwe-Vibe",
+       addidea:"Engeza umbono", start:"Qala isinqumo", votenow:"Vota manje",
+       round:"Umzuliswano", voted:"bavotile", still:"kusasele", waiting:"Silinde iqembu lonke…",
+       closeearly:"Amavoti anele — vala umzuliswano", close:"Vala umzuliswano",
+       winner:"Iqembu linomnqobi", planit:"Hlela", addmemory:"Engeza enkumbulweni",
+       summary:"Isifinyezo samavoti", yes:"YEBO", no:"CHA", plan:"Uhlelo", when:"Khetha usuku nesikhathi",
+       done:"Phawula njengokuphelile", caption:"Isihloko", rate:"Linganisa ubusuku", save:"Gcina inkumbulo",
+       settings:"Izilungiselelo", language:"Ulimi", theme:"Itimu", light:"Khanyayo", dark:"Mnyama",
+       signout:"Phuma", notifications:"Izaziso", offline:"Kulinde ukuvumelanisa",
+       allsynced:"Konke kuvumelanisiwe.", members:"amalungu", ideas:"imibono", addedby:"Yengetshwe ngu" },
+  st:{ home:"Lehae", memories:"Dihopotso", profile:"Profaele", groups:"Dihlopha tsa hao", quick:"Qala kapele",
+       cantdecide:"Ha o kgone ho etsa qeto?", surprise:"Ntihakise", myactivities:"Mesebetsi ya ka",
+       create:"Theha sehlopha", join:"Kenela ka khoutu", vibelist:"Lenane la Vibe",
+       addidea:"Eketsa mohopolo", start:"Qala qeto", votenow:"Vouta jwale",
+       round:"Potoloho", voted:"ba voutile", still:"di sa ntse di le teng", waiting:"Re emetse sehlopha kaofela…",
+       closeearly:"Divoutu di lekane — koala potoloho", close:"Koala potoloho",
+       winner:"Sehlopha se na le mohlodi", planit:"Hlopha", addmemory:"Eketsa sehopotsong",
+       summary:"Kakaretso ya divoutu", yes:"E", no:"TJHE", plan:"Moro", when:"Kgetha letsatsi le nako",
+       done:"Tshwaya e le e phethilweng", caption:"Mongolo", rate:"Tekanya bosiu", save:"Boloka sehopotso",
+       settings:"Diseting", language:"Puo", theme:"Thempe", light:"E kganyang", dark:"Lefifi",
+       signout:"Tswa", notifications:"Ditemoso", offline:"E emetse ho hokahanya",
+       allsynced:"Tsohle di hokahane.", members:"ditho", ideas:"dikgopolo", addedby:"E kentswe ke" }
+};
+let lang = "en", theme = "dark", offline = false, queued = 0, screenName = "onboarding";
+const t = k => (S[lang][k] ?? S.en[k]);
+
+/* ----------------------------------------------------------------- state */
+const state = {
+  user: { name:"Lerato", username:"lerato", email:"lerato@vibe.app" },
+  groups: [
+    { id:"g-friday", name:"Friday Night Crew", icon:"🎉", code:"FRYDAY", owner:true,
+      members:["Lerato","Thandi","Sipho","Naledi"],
+      ideas:[
+        { id:"a1", title:"Go for pizza",        icon:"🍕", by:"Thandi", status:"SUGGESTED", fav:true  },
+        { id:"a2", title:"Bowling night",       icon:"🎳", by:"Sipho",  status:"SUGGESTED", fav:false },
+        { id:"a3", title:"Movie marathon",      icon:"🍿", by:"Naledi", status:"SUGGESTED", fav:false },
+        { id:"a4", title:"Braai at the beach",  icon:"🏖️", by:"Lerato", status:"SUGGESTED", fav:false }
+      ] },
+    { id:"g-girls", name:"Girls Trip", icon:"💗", code:"TRPS24", owner:false,
+      members:["Thandi","Lerato","Naledi","Zanele"],
+      ideas:[
+        { id:"b1", title:"Road trip to Durban", icon:"🚗", by:"Thandi", status:"SUGGESTED", fav:false },
+        { id:"b2", title:"Spa morning",         icon:"☕", by:"Naledi", status:"SUGGESTED", fav:false }
+      ] },
+    { id:"g-game", name:"Game Squad", icon:"🎮", code:"SQUAD7", owner:true,
+      members:["Lerato","Kyle","Sipho"],
+      ideas:[ { id:"c1", title:"FIFA tournament", icon:"🎮", by:"Lerato", status:"SUGGESTED", fav:false } ] }
+  ],
+  memories: [
+    { id:"m1", group:"g-game", title:"FIFA tournament", icon:"🎮", when:"12 days ago", rating:5,
+      caption:"Kyle finally lost a final. Rematch loading.", photos:2 },
+    { id:"m2", group:"g-friday", title:"Movie marathon", icon:"🍿", when:"3 weeks ago", rating:4,
+      caption:"Third row, extra popcorn, nobody agreed on the last film.", photos:4 }
+  ],
+  notifications: [
+    { icon:"👥", title:"You have a group invitation",  body:"Tap to see the group and add your first idea.", read:false },
+    { icon:"🎬", title:"New idea on the Vibe List",    body:"Naledi added Movie marathon.", read:false },
+    { icon:"⏰", title:"Vote before the round closes", body:"Your YES or NO is still missing.", read:true },
+    { icon:"🏆", title:"The group has a winner",       body:"Open the plan to pick a date and time.", read:true }
+  ]
+};
+let current      = state.groups[0];
+let round        = null;    // see startRound()
+let filter       = "ALL";
+let planned      = null;    // the idea the plan/memory screen is about
+let surprisePick = null;
+let currentMemoryId = null;
+let toastMsg     = "";
+
+const group = id => state.groups.find(g => g.id === id);
+const byId  = id => current.ideas.find(i => i.id === id);
+const isIdeaLive = i => i.status === "SUGGESTED" || i.status === "ACTIVE";
+
+/* ------------------------------------------------------- decision engine */
+/* Mirrors domain/DecisionEngine.kt: one equal YES/NO per member per idea,
+   equal totals leave the idea in, results only once the round is over. */
+const engine = {
+  eligible: () => current.ideas.filter(isIdeaLive),
+  tallies(r) {
+    return r.ideaIds.map(id => {
+      const v = r.votes[id] || {};
+      const yes = Object.values(v).filter(Boolean).length;
+      const no  = Object.values(v).filter(x => !x).length;
+      const pending = current.members.length - (yes + no);
+      return { id, yes, no, pending, canProgress: yes > no, couldStillWin: yes + pending > no };
+    });
+  },
+  revealed: r => r.state !== "OPEN",
+  canCloseEarly(r) { return this.tallies(r).filter(x => x.couldStillWin).length <= 1; },
+  outcome(r) {
+    const surv = this.tallies(r).filter(x => x.canProgress);
+    if (surv.length === 1) return { kind:"winner", id:surv[0].id };
+    if (surv.length === 0) return { kind:"none" };
+    if (r.number >= 5)     return { kind:"tie", ids:surv.map(s => s.id) };
+    return { kind:"continue", ids:surv.map(s => s.id) };
+  }
+};
+
+function startRound() {
+  const ideas = engine.eligible();
+  if (ideas.length < 2) { toast("Add at least two ideas before starting a round."); return; }
+  const next = round && round.state !== "OPEN" ? Math.min(round.number + 1, 5) : (round ? round.number : 1);
+  round = { number: next, ideaIds: ideas.map(i => i.id), votes: {}, state:"OPEN", index:0, winnerId:null };
+  ideas.forEach(i => i.status = "ACTIVE");
+  screenName = "decide";
+  simulateMembers();
+}
+
+/* The other members vote a moment after you, exactly like the demo backend. */
+function simulateMembers() {
+  clearTimeout(simulateMembers.timer);
+  if (!round || round.state !== "OPEN") return;
+  simulateMembers.timer = setTimeout(() => {
+    const others = current.members.filter(m => m !== state.user.name);
+    round.ideaIds.forEach(id => {
+      round.votes[id] = round.votes[id] || {};
+      others.forEach(m => {
+        if (!(m in round.votes[id]) && Math.random() < .6)
+          round.votes[id][m] = Math.random() < .58;      // < 58% YES, as in DemoVibeApi
+      });
+    });
+    round.ticks = (round.ticks || 0) + 1;
+    if (round.ticks >= 3) {                      // stragglers vote as soon as the user has had their turn
+      round.ideaIds.forEach(id => others.forEach(m => { round.votes[id][m] = round.votes[id][m] ?? Math.random() < .58; }));
+    }
+    const everyoneVoted = round.ideaIds.every(id => Object.keys(round.votes[id]).length >= current.members.length);
+    if (everyoneVoted || engine.canCloseEarly(round)) closeRound();
+    else simulateMembers();
+    if (screenName === "decide") render();
+  }, 900);
+}
+
+function closeRound() {
+  round.state = "CLOSED";
+  const outcome = engine.outcome(round);
+  if (outcome.kind === "winner") { round.winnerId = outcome.id; byId(outcome.id).status = "WINNER"; }
+  engine.tallies(round).forEach(x => {
+    const i = byId(x.id);
+    if (x.id === round.winnerId) return;
+    i.status = x.canProgress ? "ACTIVE" : "ELIMINATED";
+  });
+  return outcome;
+}
+
+/* --------------------------------------------------------------- helpers */
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+function queue() { if (offline) { queued++; return true; } return false; }
+function go(name) { screenName = name; render(); }
+function syncNow() {
+  if (offline || queued === 0) { render(); return; }
+  const n = queued; queued = 0;
+  toast(`${n} change${n === 1 ? "" : "s"} synced.`);
+}
+function toast(msg) { toastMsg = msg; render(); setTimeout(() => { toastMsg = ""; render(); }, 2600); }
+
+/* ----------------------------------------------------------------- render */
+function render() {
+  const light = theme === "light";
+  document.body.style.background = light
+    ? "radial-gradient(circle at 20% 0%, #ffe9ef 0%, #dfe3f5 60%)"
+    : "radial-gradient(circle at 20% 0%, #1b2350 0%, #05070f 60%)";
+  const phone = document.getElementById("phone");
+  phone.style.background = light ? "#FFF7FA" : "var(--navy)";
+  phone.style.color = light ? "#14162B" : "#F4F6FF";
+  document.getElementById("statusRight").textContent = light ? "VIBE · ☀️" : "VIBE · 🌙";
+  document.getElementById("offlineTag").className = offline ? "" : "hidden";
+
+  const views = { onboarding, login, home, group:groupScreen, decide:decideScreen, winner:winnerScreen,
+                  surprise:surpriseScreen, plan:planScreen, memories:memoriesScreen, memory:memoryScreen,
+                  profile:profileScreen, settings:settingsScreen, notifications:notificationsScreen };
+  const screen = document.getElementById("screen");
+  screen.innerHTML = (views[screenName] || home)();
+  screen.scrollTop = 0;
+  // the bottom bar is the app's own chrome, so it follows the chosen language too
+  const TABS = { home:"🏠", memories:"📸", profile:"🙂" };
+  document.querySelectorAll(".tab").forEach(b => {
+    b.innerHTML = `<span class="dot">${TABS[b.dataset.tab]}</span>`;
+    b.appendChild(document.createTextNode(t(b.dataset.tab)));
+    b.classList.toggle("active",
+      b.dataset.tab === screenName || (screenName === "group" && b.dataset.tab === "home"));
+  });
+}
+
+const topBar = (title, back) => `
+  <div class="topbar">
+    ${back ? `<button class="back" data-go="${back}">‹</button>` : ""}
+    <div class="grow title">${esc(title)}</div>
+    <button class="back" data-go="notifications" aria-label="Notifications">🔔</button>
+  </div>`;
+
+const card = (icon, title, body) => `
+  <div class="card"><div class="row"><span class="emoji">${icon}</span>
+    <div class="grow"><div class="title">${esc(title)}</div><div class="sub">${esc(body)}</div></div></div></div>`;
+
+const rowLine = (icon, title, sub, go_to) => `
+  <div class="card tap" ${go_to ? `data-go="${go_to}"` : `data-action="soon"`}><div class="row"><span class="emoji">${icon}</span>
+    <div class="grow"><div class="title">${esc(title)}</div><div class="sub">${esc(sub)}</div></div>
+    <span class="muted">›</span></div></div>`;
+const stat   = (v, label) => `<div class="card center grow"><div class="title" style="font-size:20px">${v}</div><div class="sub">${label}</div></div>`;
+const toggle = (label, on) => `
+  <div class="card"><div class="row"><div class="grow"><div class="title">${esc(label)}</div></div>
+    <span class="pill ${on ? "on" : ""}">${on ? "On" : "Off"}</span></div></div>`;
+const greeting = () => { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; };
+
+function layer() {
+  const wait = queued > 0
+    ? `<div class="banner" data-action="reconnect" style="cursor:pointer">☁️ ${queued} change${queued === 1 ? "" : "s"} ${t("offline")} — tap here to reconnect</div>` : "";
+  const note = toastMsg
+    ? `<div class="banner" style="background:rgba(79,209,165,.16);color:var(--mint)">${esc(toastMsg)}</div>` : "";
+  return wait + note;
+}
+
+/* --------------------------------------------------------------- screens */
+function onboarding() {
+  return `
+    <div class="logo">🎉💗🎮</div>
+    <div class="wordmark">VIBE</div>
+    <p class="center">Stop arguing. Start vibing.</p>
+    ${card("👥","Make a group","Add your people and their ideas in one place.")}
+    ${card("🗳️","Vote YES or NO","One equal vote each, so nobody carries the group.")}
+    ${card("📸","Keep the memory","Plan it, then save the photos, caption and rating.")}
+    <button class="primary" data-go="login">Get started</button>`;
+}
+
+function login() {
+  return `
+    <div class="logo">🎉</div>
+    <div class="wordmark" style="font-size:26px">VIBE</div>
+    <p class="center">Welcome back.</p>
+    <input value="lerato@vibe.app" aria-label="Email address">
+    <input value="••••••••" type="password" aria-label="Password">
+    <button class="primary" data-go="home">Log in</button>
+    <button class="ghost" data-go="home">Continue with Google</button>
+    <p class="center muted">Forgot password? · New here? Create an account</p>`;
+}
+
+function home() {
+  const cards = state.groups.map(g => `
+    <div class="card tap" data-group="${g.id}">
+      <div class="row"><span class="emoji">${g.icon}</span>
+        <div class="grow"><div class="title">${esc(g.name)}</div>
+          <div class="sub">${g.members.length} ${t("members")} · ${g.ideas.length} ${t("ideas")}</div></div>
+        <span class="muted">›</span></div>
+    </div>`).join("");
+  const live = round && round.state === "OPEN";
+  return `
+    ${topBar(`${greeting()}, ${state.user.name} 👋`, null)}
+    ${layer()}
+    ${live ? `<div class="banner">🗳️ ${t("round")} ${round.number} is open in ${esc(current.name)} — <b>tap to vote</b></div>` : ""}
+    ${cards}
+    <button class="primary" data-go="group">Decide For Us 🎲</button>
+    <h2>${t("quick")}</h2>
+    <div class="card tap" data-action="cantdecide"><div class="row"><span class="emoji">🤔</span>
+      <div class="grow"><div class="title">${t("cantdecide")}</div><div class="sub">Open YES/NO rounds for a group</div></div></div></div>
+    <div class="card tap" data-action="surprise"><div class="row"><span class="emoji">🎲</span>
+      <div class="grow"><div class="title">${t("surprise")}</div><div class="sub">One random idea you can accept or skip</div></div></div></div>
+    <div class="card tap" data-go="memories"><div class="row"><span class="emoji">📸</span>
+      <div class="grow"><div class="title">${t("myactivities")} &amp; ${t("memories")}</div>
+      <div class="sub">Everything you decided and did</div></div></div></div>
+    <button class="fab" data-go="group" aria-label="${t("create")}">＋</button>`;
+}
+
+function groupScreen() {
+  const pills = ["ALL","SUGGESTED","COMPLETED","FAVOURITES"].map(f => {
+    const label = f === "ALL" ? "All" : f.charAt(0) + f.slice(1).toLowerCase();
+    return `<span class="pill ${filter === f ? "on" : ""}" data-filter="${f}">${label}</span>`;
+  }).join("");
+  const visible = current.ideas.filter(i => {
+    if (filter === "SUGGESTED")  return isIdeaLive(i);
+    if (filter === "COMPLETED")  return i.status === "COMPLETED";
+    if (filter === "FAVOURITES") return i.fav;
+    return true;
+  });
+  const list = visible.map(i => {
+    const tag = i.status === "ELIMINATED" ? `<span class="pill">Eliminated</span>`
+              : i.status === "WINNER"     ? `<span class="pill on">Winner 🏆</span>`
+              : i.status === "COMPLETED"  ? `<span class="pill on">Done ✓</span>` : "";
+    return `
+      <div class="card tap" data-idea="${i.id}">
+        <div class="row"><span class="emoji">${i.icon}</span>
+          <div class="grow"><div class="title">${esc(i.title)}</div>
+            <div class="sub">${t("addedby")} ${esc(i.by)} · ${current.members.length} ${t("members")}</div>
+            ${tag}</div>
+          <button class="back" data-fav="${i.id}" aria-label="Favourite">${i.fav ? "⭐" : "☆"}</button></div>
+      </div>`;
+  }).join("");
+  return `
+    ${topBar(`${current.icon} ${current.name}`, "home")}
+    ${layer()}
+    <p>Invite code <b>${current.code}</b> · ${current.members.length} ${t("members")}</p>
+    <div class="row" style="gap:8px">
+      <button class="ghost" style="margin:0" data-action="add">${t("addidea")}</button>
+      <button class="primary" style="margin:0" data-action="start">${t("start")}</button>
+    </div>
+    <h2>${t("vibelist")}</h2>
+    <div>${pills}</div>
+    ${list || `<p>Nothing here yet — add an idea and start a round.</p>`}
+    <button class="fab" data-action="add" aria-label="${t("addidea")}">＋</button>`;
+}
+
+function decideScreen() {
+  if (!round) return `${topBar("Decide For Us","group")}<p>Start a round from the group screen.</p>`;
+  const tallies = engine.tallies(round);
+  const revealed = engine.revealed(round);
+  const total = round.ideaIds.length;
+  const mine = name => round.votes[name] && true;
+  const iAmDone = !revealed && round.index >= total;
+  const id = round.ideaIds[Math.min(round.index, total - 1)];
+  const idea = byId(id);
+  const voters = new Set(Object.values(round.votes).flatMap(v => Object.keys(v))).size;
+
+  const voteRow = (!revealed && !iAmDone) ? `
+    <div class="row" style="gap:12px;margin-top:14px">
+      <button class="nobtn" data-vote="false">${t("no")}</button>
+      <button class="yesbtn" data-vote="true">${t("yes")}</button>
+    </div>` : "";
+
+  const tallyList = tallies.map(x => {
+    const i = byId(x.id);
+    const mark = x.canProgress ? `<span class="check">survives</span>` : `<span class="muted">eliminated</span>`;
+    return `<div class="row" style="margin:6px 0"><span class="emoji">${i.icon}</span>
+      <div class="grow"><div class="sub">${esc(i.title)}</div></div>
+      <div class="sub">✅ ${x.yes} · ❌ ${x.no} · ⏳ ${x.pending} · ${mark}</div></div>`;
+  }).join("");
+
+  const outcome = revealed ? engine.outcome(round) : null;
+  const finisher = !outcome ? "" :
+      outcome.kind === "winner"  ? `<button class="primary" data-go="winner">${t("winner")} 🏆</button>`
+    : outcome.kind === "continue" ? `<button class="primary" data-action="start">${t("round")} ${round.number + 1} →</button>`
+    : outcome.kind === "tie"      ? `<button class="primary" data-action="start">Level — ${t("round")} ${round.number + 1} →</button>`
+    : `<p>Nothing survived that round — every idea was voted down. Add a fresh idea and go again.</p>
+       <button class="primary" data-action="add">${t("addidea")}</button>`;
+
+  return `
+    ${topBar(`${t("round")} ${round.number}`, "group")}
+    ${layer()}
+    <p>${round.number} · ${voters}/${current.members.length} ${t("voted")} · ${tallies.filter(x => x.canProgress).length} ${t("still")}</p>
+    <div class="bar"><i style="width:${Math.min(100, Math.round(voters / current.members.length * 100))}%"></i></div>
+    ${iAmDone ? `
+      <div class="card center votebox">
+        <div style="font-size:26px">⏳</div><div class="title">${t("waiting")}</div>
+        <div class="sub">${voters}/${current.members.length} ${t("voted")} · ${t("round")} ${round.number}</div>
+      </div>` : `
+      <div class="card votebox">
+        <div class="sub">Idea ${Math.min(round.index, total - 1) + 1} of ${total}</div>
+        <div class="row" style="margin-top:6px"><span class="emoji" style="font-size:30px">${idea.icon}</span>
+          <div class="grow"><div class="title" style="font-size:19px">${esc(idea.title)}</div>
+          <div class="sub">${t("addedby")} ${esc(idea.by)}</div></div></div>
+        ${voteRow}
+        <p class="muted">Your vote is private until the round closes.</p>
+      </div>`}
+    ${revealed ? `<h2>${t("summary")}</h2>${tallyList}` : ""}
+    ${finisher}
+    ${!revealed && engine.canCloseEarly(round) && !iAmDone
+        ? `<button class="ghost" data-action="close">${t("closeearly")}</button>` : ""}`;
+}
+
+function winnerScreen() {
+  const i = round && round.winnerId ? byId(round.winnerId) : null;
+  if (!i) return `${topBar(t("winner"),"home")}<p>No winner yet.</p>`;
+  const v = round.votes[i.id] || {};
+  const yes = Object.values(v).filter(Boolean).length, no = Object.values(v).filter(x => !x).length;
+  return `
+    ${topBar(t("winner"), "home")}
+    <div class="confetti">${confetti()}</div>
+    <div class="card center" style="padding:26px">
+      <div style="font-size:44px">${i.icon}</div>
+      <div class="title" style="font-size:22px;margin:8px 0">${esc(i.title)}</div>
+      <div class="sub">✅ ${yes} · ❌ ${no} · ${t("round").toLowerCase()}s ${round.number}</div>
+      <span class="pill on">Winner 🏆</span>
+    </div>
+    <button class="primary" data-action="plan">${t("planit")}</button>
+    <button class="ghost" data-action="memory">${t("addmemory")}</button>`;
+}
+
+function surpriseScreen() {
+  const pool = engine.eligible();
+  if (!pool.length) return `${topBar(t("surprise"),"home")}<p>No eligible ideas left — add one to the Vibe List.</p>`;
+  if (!surprisePick || !byId(surprisePick.id)) surprisePick = pool[Math.floor(Math.random() * pool.length)];
+  return `
+    ${topBar(t("surprise"), "home")}
+    ${layer()}
+    <p class="center">${t("surprise")} 🎲</p>
+    <div class="card center" style="padding:26px">
+      <div style="font-size:46px">${surprisePick.icon}</div>
+      <div class="title" style="font-size:21px;margin-top:8px">${esc(surprisePick.title)}</div>
+      <div class="sub">${t("addedby")} ${esc(surprisePick.by)}</div>
+    </div>
+    <div class="row" style="gap:12px">
+      <button class="nobtn" data-action="skip">Skip</button>
+      <button class="yesbtn" data-action="accept">Lock it in</button>
+    </div>`;
+}
+
+function planScreen() {
+  const i = planned || (round && round.winnerId ? byId(round.winnerId) : null);
+  if (!i) return `${topBar(t("plan"),"home")}<p>Nothing to plan yet.</p>`;
+  return `
+    ${topBar(t("plan"), "home")}
+    ${layer()}
+    <div class="card"><div class="row"><span class="emoji">${i.icon}</span>
+      <div class="grow"><div class="title">${esc(i.title)}</div><div class="sub">${t("when")}</div></div></div></div>
+    <input type="date" value="2026-09-26" aria-label="Date">
+    <input type="time" value="19:30" aria-label="Time">
+    <button class="primary" data-action="save-plan">${t("planit")}</button>
+    <button class="ghost" data-action="complete">${t("done")}</button>`;
+}
+
+function memoriesScreen() {
+  const tiles = state.memories.map(m => `
+    <div class="card tap" data-memory="${m.id}">
+      <div class="row"><span class="emoji">${m.icon}</span>
+        <div class="grow"><div class="title">${esc(m.title)}</div>
+          <div class="sub">${m.when} · ${m.photos} photos</div></div>
+        <div class="stars">${"★".repeat(m.rating)}${"☆".repeat(5 - m.rating)}</div></div>
+    </div>`).join("");
+  return `${topBar(t("memories"), null)}${layer()}
+    <p>${state.memories.length} ${t("memories").toLowerCase()} · ${state.memories.filter(m => m.rating >= 4).length} rated 4+</p>
+    ${tiles}`;
+}
+
+function memoryScreen() {
+  const m = state.memories.find(x => x.id === currentMemoryId);
+  if (!m) return memoriesScreen();
+  const stars = [1,2,3,4,5].map(n => `<span data-rate="${n}">${n <= m.rating ? "★" : "☆"}</span>`).join("");
+  return `${topBar(m.title, "memories")}
+    <div class="card" style="height:150px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:34px">
+      ${"🖼️".repeat(m.photos)}
+    </div>
+    <p>${esc(m.caption)}</p>
+    <div class="stars">${stars}</div>
+    <p class="muted">${t("rate")} · ${m.rating}/5</p>`;
+}
+
+function profileScreen() {
+  return `${topBar(t("profile"), null)}
+    ${layer()}
+    <div class="row" style="margin:10px 0">
+      <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--coral),var(--lilac));display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#2a0b12">L</div>
+      <div><div class="title" style="font-size:20px">${state.user.name}</div>
+        <div class="sub">@${state.user.username} · ${state.user.email}</div></div>
+    </div>
+    <div class="row" style="gap:8px">
+      ${stat(12,"decisions")}${stat(8,"activities")}${stat(state.groups.length,"groups")}
+    </div>
+    <h2>Account</h2>
+    ${rowLine("✏️","Edit Profile","Name, username, photo")}
+    ${rowLine("👥","My Groups", state.groups.length + " groups", "home")}
+    ${rowLine("🗒️","My Activities","Everything you added", "memories")}
+    ${rowLine("⚙️", t("settings"), "Notifications, privacy, theme", "settings")}
+    ${rowLine("🌍", t("language"), "English · " + lang, "settings")}
+    ${rowLine("💬","Help & Support","support@vibe.app")}`;
+}
+
+function settingsScreen() {
+  return `${topBar(t("settings"), "profile")}
+    ${layer()}
+    <h2>${t("notifications")}</h2>
+    ${toggle("Invitations and new ideas", true)}
+    ${toggle("Vote deadlines and winners", true)}
+    <h2>Privacy</h2>
+    ${toggle("Group members only", true)}
+    <h2>${t("theme")}</h2>
+    <div><span class="pill ${theme === "dark" ? "on" : ""}" data-theme="dark">🌙 ${t("dark")}</span>
+      <span class="pill ${theme === "light" ? "on" : ""}" data-theme="light">☀️ ${t("light")}</span></div>
+    <h2>${t("language")}</h2>
+    <div>
+      <span class="pill ${lang === "en" ? "on" : ""}" data-lang="en">English</span>
+      <span class="pill ${lang === "zu" ? "on" : ""}" data-lang="zu">isiZulu</span>
+      <span class="pill ${lang === "st" ? "on" : ""}" data-lang="st">Sesotho</span>
+    </div>
+    <h2>Offline</h2>
+    <div class="card"><div class="row">
+      <div class="grow"><div class="title">${queued === 0 ? t("allsynced") : queued + " " + t("offline")}</div>
+        <div class="sub">${offline ? "Airplane mode is on" : "Connected"}</div></div>
+      <button class="ghost" style="margin:0" data-action="reconnect">${offline ? "Reconnect" : "Force sync"}</button></div></div>
+    <button class="ghost" data-go="login">${t("signout")}</button>`;
+}
+
+function notificationsScreen() {
+  const list = state.notifications.map(n => `
+    <div class="card"><div class="row"><span class="emoji">${n.icon}</span>
+      <div class="grow"><div class="title" style="${n.read ? "" : "font-weight:800"}">${esc(n.title)}</div>
+        <div class="sub">${esc(n.body)}</div></div></div></div>`).join("");
+  return `${topBar(t("notifications"), "home")}
+    <button class="ghost" data-action="read-all">Mark all as read</button>
+    ${list}`;
+}
+
+function confetti() {
+  const colors = ["#FF6B6B","#B79CFF","#4FD1A5","#FFD166"];
+  let out = "";
+  for (let i = 0; i < 26; i++) {
+    out += `<i style="left:${(i * 3.7) % 100}%;background:${colors[i % 4]};
+      animation-duration:${2.2 + (i % 5) * .5}s;animation-delay:${(i % 7) * .25}s"></i>`;
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------- behaviour */
+/* One delegated listener — the tab bar is persistent, so it must never be re-bound. */
+document.addEventListener("click", event => {
+  const el = event.target.closest("[data-go],[data-tab],[data-group],[data-idea],[data-filter],[data-fav],[data-memory],[data-rate],[data-theme],[data-lang],[data-action],[data-vote]");
+  if (!el) return;
+  const d = el.dataset;
+
+  if (d.tab)        return go(d.tab);
+  if (d.go)         return go(d.go);
+  if (d.group)      { current = group(d.group); filter = "ALL"; return go("group"); }
+  if (d.filter)     { filter = d.filter; return render(); }
+  if (d.idea)       { planned = byId(d.idea); return go("plan"); }
+  if (d.fav)        { const i = byId(d.fav); i.fav = !i.fav; queue(); return render(); }
+  if (d.memory)     { currentMemoryId = d.memory; return go("memory"); }
+  if (d.rate)       { state.memories.find(x => x.id === currentMemoryId).rating = +d.rate; return render(); }
+  if (d.theme)      { theme = d.theme; return render(); }
+  if (d.lang)       { lang = d.lang; return render(); }
+
+  if (d.vote !== undefined) {
+    if (!round || engine.revealed(round) || round.index >= round.ideaIds.length) return;
+    const id = round.ideaIds[round.index];
+    round.votes[id] = Object.assign({}, round.votes[id], { [state.user.name]: d.vote === "true" });
+    round.index++;
+    if (queue()) toast("Vote saved offline — it will sync when you reconnect.");
+    if (round.index >= round.ideaIds.length) simulateMembers();
+    return render();
+  }
+
+  switch (d.action) {
+    case "add": {
+      const title = prompt("New idea for the Vibe List:", "Sunset picnic 🌅");
+      if (title) {
+        current.ideas.unshift({ id:"i" + Date.now(), title, icon:"🌅", by:state.user.name,
+                                status:"SUGGESTED", fav:false });
+        queue() ? toast("Saved offline — it will sync when you reconnect.") : toast("Added to the Vibe List.");
+      }
+      return render();
+    }
+    case "start":  startRound(); return render();
+    case "close":  closeRound(); return render();
+    case "cantdecide": screenName = "group"; return render();
+    case "surprise": surprisePick = null; return go("surprise");
+    case "skip": {
+      const pool = engine.eligible().filter(i => !surprisePick || i.id !== surprisePick.id);
+      surprisePick = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+      toast("Skipped — here is another one.");
+      return render();
+    }
+    case "accept": planned = surprisePick; return go("plan");
+    case "plan":   planned = round && round.winnerId ? byId(round.winnerId) : planned; return go("plan");
+    case "memory": planned = round && round.winnerId ? byId(round.winnerId) : planned; return go("plan");
+    case "save-plan":
+      queue() ? toast("Plan saved on this device — it will sync when you reconnect.")
+              : toast("Plan saved. 🎉");
+      return go("home");
+    case "complete": {
+      const i = planned || (round && round.winnerId ? byId(round.winnerId) : null);
+      if (i) {
+        state.memories.unshift({ id:"m" + Date.now(), group:current.id, title:i.title, icon:i.icon,
+                                 when:"just now", rating:5, caption:"That night we finally made it.", photos:2 });
+        i.status = "COMPLETED";
+        queue() ? toast("Saved to Memories offline.") : toast("Nice one — saved to Memories.");
+      }
+      return go("memories");
+    }
+    case "read-all": state.notifications.forEach(n => n.read = true); return render();
+    case "soon": return toast("In the real app this opens the screen from the design document.");
+    case "reconnect": offline = false; queued ? syncNow() : render(); return;
+  }
+});
+
+/* airplane mode from the status bar */
+const offlineTag = document.getElementById("offlineTag");
+offlineTag.textContent = "✈️ airplane mode";
+offlineTag.style.cursor = "pointer";
+offlineTag.addEventListener("click", () => {
+  offline = !offline;
+  if (!offline) syncNow(); else render();
+});
+
+render();
+</script>
+</body>
+</html>
