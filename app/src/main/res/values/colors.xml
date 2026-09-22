@@ -1,9 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!--
+      VIBE palette (design system, section 4 of the design document).
+      Midnight navy is the canvas, coral is reserved for the primary action,
+      mint means confirmed / YES, and lilac carries secondary information.
+    -->
+    <color name="vibe_navy">#0B1026</color>
+    <color name="vibe_navy_elevated">#141B3D</color>
+    <color name="vibe_navy_soft">#1E2749</color>
+    <color name="vibe_coral">#FF6B6B</color>
+    <color name="vibe_coral_pressed">#E85555</color>
+    <color name="vibe_coral_soft">#FFD9D6</color>
+    <color name="vibe_lilac">#B79CFF</color>
+    <color name="vibe_lilac_soft">#EDE7FF</color>
+    <color name="vibe_mint">#4FD1A5</color>
+    <color name="vibe_mint_soft">#D6F6E9</color>
+    <color name="vibe_ink">#14162B</color>
+    <color name="vibe_ink_muted">#6B7090</color>
+    <color name="vibe_blush">#FFF4F8</color>
+    <color name="vibe_white">#FFFFFF</color>
+    <color name="vibe_text_on_dark">#F4F6FF</color>
+    <color name="vibe_text_muted_dark">#A6ADD1</color>
+
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="vibe_pink">#F73F8B</color>
-    <color name="vibe_purple">#7B49C9</color>
-    <color name="vibe_green">#37B88B</color>
-    <color name="vibe_background">#FFF4F8</color>
 </resources>

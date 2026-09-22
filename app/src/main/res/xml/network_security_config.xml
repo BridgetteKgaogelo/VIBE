@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Security requirement: all authentication and API traffic uses HTTPS.
+  Cleartext is refused everywhere, so a misconfigured base URL fails loudly
+  instead of leaking tokens. Local development against a machine-bound API
+  should use the emulator alias with TLS, or a debug-only network config.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

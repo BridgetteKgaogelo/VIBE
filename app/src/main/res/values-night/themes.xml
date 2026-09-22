@@ -1,7 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Base.Theme.VIBEGAMINGAPP" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your dark theme here. -->
-        <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+    <!-- Dark theme is the VIBE default: midnight navy canvas. -->
+    <style name="Base.Theme.VIBE" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/vibe_coral</item>
+        <item name="colorSecondary">@color/vibe_lilac</item>
+        <item name="colorTertiary">@color/vibe_mint</item>
+        <item name="android:windowBackground">@color/vibe_navy</item>
+        <item name="android:statusBarColor">@color/vibe_navy</item>
+        <item name="android:navigationBarColor">@color/vibe_navy</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
     </style>
 </resources>

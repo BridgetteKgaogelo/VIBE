@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- PoE: English, isiZulu and Sesotho are supplied; Android 13+ shows these in
+     Settings > Apps > VIBE > Language, and the in-app picker uses
+     AppCompatDelegate.setApplicationLocales for older releases. -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="en-ZA" />
+    <locale android:name="en" />
+    <locale android:name="zu" />
+    <locale android:name="st" />
+</locale-config>
