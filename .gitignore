@@ -1,0 +1,24 @@
+# Gradle / Android
+.gradle/
+build/
+app/build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# .NET
+api-container/**/bin/
+api-container/**/obj/
+api-container/**/*.db
+api-container/**/*.db-*
+
+# OS
+.DS_Store

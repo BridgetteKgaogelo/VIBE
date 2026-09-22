@@ -1,0 +1,1201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VIBE — clickable prototype</title>
+<style>
+  :root {
+    --coral:#FF6B6B; --coral-press:#E85555; --lilac:#B79CFF; --mint:#4FD1A5; --gold:#FFD166;
+    --radius:20px;
+  }
+  /* Dark is the default; the light theme overrides every surface below. */
+  .phone[data-theme="dark"] {
+    --canvas:#0B1026; --elevated:#141B3D; --soft:#1E2749; --ink:#F4F6FF; --muted:#A6ADD1;
+    --line:#26305c; --field:#141B3D; --bar:#0d1329; --shadow:rgba(0,0,0,.55);
+  }
+  .phone[data-theme="light"] {
+    --canvas:#FFF7FA; --elevated:#FFFFFF; --soft:#EEF1FB; --ink:#14162B; --muted:#5C6486;
+    --line:#DCE0F2; --field:#FFFFFF; --bar:#FFFFFF; --shadow:rgba(20,22,43,.18);
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; gap:30px;
+    background:radial-gradient(circle at 20% 0%, #1b2350 0%, #05070f 60%);
+    font-family:"Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif; color:#F4F6FF;
+    padding:18px; flex-wrap:wrap;
+  }
+  body[data-theme="light"] { background:radial-gradient(circle at 20% 0%, #ffe9ef 0%, #dfe3f5 60%); color:#14162B; }
+  .stage { display:flex; flex-direction:column; align-items:center; gap:10px; }
+  /* The phone always fits the viewport, so the navigation bar can never be cut off. */
+  .phone {
+    width:390px; height:min(820px, calc(100vh - 90px)); max-height:820px; min-height:540px;
+    background:var(--canvas); color:var(--ink); border-radius:36px; padding:12px 12px 0;
+    box-shadow:0 30px 70px var(--shadow), 0 0 0 10px #0a0d1c, 0 0 0 12px #1c2340;
+    display:flex; flex-direction:column; overflow:hidden; position:relative; transition:background .25s;
+  }
+  .statusbar { display:flex; align-items:center; justify-content:space-between; font-size:11px;
+    color:var(--muted); padding:2px 10px 8px; }
+  .statusbar #offlineTag { cursor:pointer }
+  .screenwrap { flex:1; display:flex; min-height:0; flex-direction:column; position:relative }
+  .screen { flex:1; overflow-y:auto; padding:4px 16px 24px; scrollbar-width:thin; }
+  .screen::-webkit-scrollbar { width:6px } .screen::-webkit-scrollbar-thumb { background:var(--line); border-radius:3px }
+  .bar { flex:0 0 auto; display:flex; align-items:stretch; justify-content:space-around;
+    background:var(--bar); border-top:1px solid var(--line); padding:6px 4px 8px; position:relative; z-index:6; }
+  .bar[hidden] { display:none }
+  .tab { flex:1; background:none; border:0; color:var(--muted); font:600 11px/1.5 inherit;
+    display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 0 4px; cursor:pointer;
+    border-radius:14px; transition:color .18s, background .18s; }
+  .tab .dot { font-size:19px; line-height:1 }
+  .tab[aria-selected="true"] { color:var(--coral); background:color-mix(in srgb, var(--coral) 14%, transparent) }
+  .tab:focus-visible { outline:2px solid var(--coral); outline-offset:1px }
+  h1 { font-size:26px; margin:8px 0 2px; letter-spacing:-.4px }
+  h2 { font-size:15px; margin:20px 0 6px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted) }
+  p { color:var(--muted); font-size:13.5px; line-height:1.5; margin:6px 0 }
+  .card { background:var(--elevated); border-radius:var(--radius); padding:14px; margin:10px 0;
+    box-shadow:0 2px 10px var(--shadow); }
+  .card.tap { cursor:pointer; transition:transform .08s ease, background .2s }
+  .card.tap:active { transform:scale(.985) }
+  .row { display:flex; align-items:center; gap:10px }
+  .grow { flex:1 }
+  .emoji { font-size:22px; width:34px; text-align:center }
+  .title { font-weight:700; font-size:14.5px }
+  .sub { color:var(--muted); font-size:12px }
+  button.primary, button.ghost, .pill {
+    font:700 14px inherit; border:0; border-radius:16px; padding:14px 16px; cursor:pointer;
+    transition:filter .15s, transform .08s
+  }
+  button.primary { background:var(--coral); color:#2a0b12; width:100%; margin-top:10px }
+  button.primary:active { background:var(--coral-press); transform:scale(.99) }
+  button.primary[disabled] { opacity:.45; cursor:not-allowed }
+  button.ghost { background:var(--soft); color:var(--ink); width:100%; margin-top:8px }
+  button.danger { background:none; color:var(--coral); }
+  button.link { background:none; border:0; color:var(--coral); font:700 13px inherit; cursor:pointer; padding:6px }
+  .pill { display:inline-block; background:var(--soft); color:var(--muted); font-size:12px;
+    padding:8px 13px; border-radius:999px; margin:4px 6px 4px 0 }
+  .pill.on { background:color-mix(in srgb, var(--coral) 18%, transparent); color:var(--coral);
+    box-shadow:inset 0 0 0 1px var(--coral) }
+  .pill.choice { font-size:20px; padding:10px 12px }
+  .pill.ok { color:var(--mint); box-shadow:inset 0 0 0 1px var(--mint);
+    background:color-mix(in srgb, var(--mint) 14%, transparent) }
+  .yesbtn, .nobtn { flex:1; font:800 16px inherit; padding:18px 0; border:0; border-radius:18px; cursor:pointer }
+  .yesbtn { background:var(--mint); color:#04281d } .nobtn { background:var(--soft); color:var(--ink) }
+  .topbar { display:flex; align-items:center; gap:8px; padding:8px 0 2px; position:sticky; top:0;
+    background:var(--canvas); z-index:5 }
+  .back { background:none; border:0; color:var(--ink); font-size:20px; cursor:pointer; padding:6px 8px 6px 0 }
+  .fab { position:absolute; right:20px; bottom:96px; width:58px; height:58px; border-radius:50%; border:0;
+    background:var(--coral); color:#2a0b12; font-size:26px; line-height:1; cursor:pointer; z-index:7;
+    box-shadow:0 12px 28px rgba(255,107,107,.35) }
+  .banner { background:color-mix(in srgb, var(--lilac) 18%, transparent); color:var(--lilac); font-size:12px;
+    padding:9px 12px; border-radius:14px; margin:8px 0; cursor:pointer }
+  .banner.ok { background:color-mix(in srgb, var(--mint) 18%, transparent); color:var(--mint); cursor:default }
+  .banner.bad { background:color-mix(in srgb, var(--coral) 18%, transparent); color:var(--coral) }
+  .hidden { display:none !important }
+  .center { text-align:center }
+  .logo { font-size:44px; text-align:center; margin-top:22px }
+  .wordmark { font-size:34px; font-weight:800; letter-spacing:6px; text-align:center;
+    background:linear-gradient(90deg,var(--coral),var(--lilac),var(--mint));
+    -webkit-background-clip:text; background-clip:text; color:transparent }
+  .confetti { position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:4 }
+  .confetti i { position:absolute; top:-12px; width:8px; height:14px; border-radius:2px; animation:fall linear infinite }
+  @keyframes fall { to { transform:translateY(880px) rotate(540deg) } }
+  .big { font-size:44px }
+  .muted { color:var(--muted) }
+  .check { color:var(--mint) }
+  .stars { color:var(--gold); font-size:20px; letter-spacing:2px; cursor:pointer }
+  .stars span { padding:2px }
+  .code { font-family:ui-monospace, "SF Mono", Menlo, monospace; font-weight:700; letter-spacing:3px;
+    font-size:20px; color:var(--lilac) }
+  .avatars { display:flex }
+  .avatars span { width:26px; height:26px; border-radius:50%; background:var(--soft); color:var(--ink);
+    display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;
+    margin-left:-8px; box-shadow:0 0 0 2px var(--elevated) }
+  .avatars span:first-child { margin-left:0 }
+  input, textarea, select { width:100%; background:var(--field); border:1px solid var(--line); color:var(--ink);
+    border-radius:14px; padding:14px; font:inherit; margin-top:8px }
+  input:focus, textarea:focus { outline:2px solid var(--coral); outline-offset:1px }
+  label { font-size:12px; color:var(--muted); display:block; margin-top:12px }
+  .notes { width:300px; font-size:12.5px; line-height:1.6; max-height:calc(100vh - 40px); overflow:auto }
+  .notes h3 { font-size:15px; margin:0 0 6px }
+  .notes ol { padding-left:18px; margin:8px 0 } .notes li { margin:6px 0 }
+  .kbd { background:color-mix(in srgb, var(--lilac) 22%, transparent); border-radius:6px; padding:1px 6px;
+    font-family:ui-monospace, monospace; font-size:11.5px }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="phone" id="phone" data-theme="dark">
+    <div class="statusbar"><span>9:41</span>
+      <span id="offlineTag" class="hidden" role="button" tabindex="0">✈️ offline · tap to reconnect</span>
+      <span id="statusRight">VIBE · 🌙</span></div>
+    <div class="screenwrap">
+      <div class="screen" id="screen"></div>
+      <button class="fab hidden" id="fab" aria-label="Quick add">＋</button>
+    </div>
+    <nav class="bar" id="bar" hidden aria-label="Main navigation">
+      <button class="tab" data-tab="home" role="tab"><span class="dot">🏠</span><span>Home</span></button>
+      <button class="tab" data-tab="memories" role="tab"><span class="dot">📸</span><span>Memories</span></button>
+      <button class="tab" data-tab="profile" role="tab"><span class="dot">🙂</span><span>Profile</span></button>
+    </nav>
+  </div>
+</div>
+
+<div class="notes">
+  <h3>VIBE — clickable prototype</h3>
+  <p>The Android app's flow and design system in one file, so every screen can be judged
+     before the APK is built. Like the app it <b>starts empty</b>: no groups, ideas, plans
+     or memories are pre-loaded; the demo account is all you begin with.</p>
+  <ol>
+    <li><b>Get started</b> → sign in. The bottom bar appears once you are signed in.</li>
+    <li>Home is empty → <b>Create group</b> (name + icon) for <i>Friday Night Crew</i>,
+        <i>Girls Trip</i>, <i>Game Squad</i> — as many as you like. You own them and get an
+        invite code to share.</li>
+    <li>Add ideas, then <b>Start decision</b>. Vote NO/YES on every idea; results appear
+        only when the round closes.</li>
+    <li><b>Join with a code</b> with any code that is not yours (e.g. <span class="kbd">PARTY7</span>)
+        and you land in a friend's group as a member: their owner starts the round, you vote,
+        the other members vote, and an alert arrives when there is a winner.</li>
+    <li>Quick Start: <b>Can't Decide?</b>, <b>Surprise Me</b> (accept or skip) and
+        <b>My Activities</b> — all three work once a group exists.</li>
+    <li>Top-right <span class="kbd">✈️</span> flips airplane mode: changes queue up, the badge
+        counts them, and reconnecting syncs — or asks you to settle a conflict.</li>
+    <li>Settings: notification and privacy toggles, theme, language (English, isiZulu,
+        Sesotho — labels <i>and</i> alerts), password, linked accounts.</li>
+  </ol>
+  <p class="muted">The real client is Kotlin/Compose in <span class="kbd">app/</span>; this file
+     is a demo aid, not part of the build.</p>
+</div>
+
+<script>
+/* ------------------------------------------------------------------ i18n */
+const S = {
+  en:{ home:"Home", memories:"Memories", profile:"Profile", groups:"Your groups", quick:"Quick Start",
+       cantdecide:"Can't Decide?", surprise:"Surprise Me", myactivities:"My Activities",
+       create:"Create group", join:"Join with a code", vibelist:"Vibe List", activities:"Activities",
+       addidea:"Add an idea", start:"Start decision", votenow:"Vote now", members:"Members",
+       round:"Round", voted:"voted", still:"still in", waiting:"Waiting for the rest of the group…",
+       closeearly:"Enough votes to decide — close the round", close:"Close the round",
+       winner:"The group has a winner", planit:"Plan it", addmemory:"Add to memories",
+       summary:"Vote summary", yes:"YES", no:"NO", plan:"Plan", when:"Pick a date and time",
+       done:"Mark as done", rate:"Rate the night", save:"Save memory",
+       settings:"Settings", language:"Language", theme:"Theme", light:"Light", dark:"Dark",
+       signout:"Sign out", notifications:"Notifications", offline:"waiting to sync",
+       allsynced:"Everything is in sync.", ideas:"ideas", addedby:"Added by",
+       empty:"No groups yet",
+       emptybody:"Create a group for your crew, or join one with an invite code, and start deciding together.",
+       invitehint:"Share this code so your friends can join" },
+  zu:{ home:"Ikhaya", memories:"Izinkumbulo", profile:"Iphrofayili", groups:"Amaqembu akho", quick:"Qala Ngokushesha",
+       cantdecide:"Awukwazi ukunquma?", surprise:"Ngimangaze", myactivities:"Imisebenzi yami",
+       create:"Dala iqembu", join:"Joyina ngekhodi", vibelist:"Uhlu lwe-Vibe", activities:"Imisebenzi",
+       addidea:"Engeza umbono", start:"Qala isinqumo", votenow:"Vota manje", members:"Amalungu",
+       round:"Umzuliswano", voted:"bavotile", still:"kusasele", waiting:"Silinde iqembu lonke…",
+       closeearly:"Amavoti anele — vala umzuliswano", close:"Vala umzuliswano",
+       winner:"Iqembu linomnqobi", planit:"Hlela", addmemory:"Engeza enkumbulweni",
+       summary:"Isifinyezo samavoti", yes:"YEBO", no:"CHA", plan:"Uhlelo", when:"Khetha usuku nesikhathi",
+       done:"Phawula njengokuphelile", rate:"Linganisa ubusuku", save:"Gcina inkumbulo",
+       settings:"Izilungiselelo", language:"Ulimi", theme:"Itimu", light:"Khanyayo", dark:"Mnyama",
+       signout:"Phuma", notifications:"Izaziso", offline:"kulinde ukuvumelanisa",
+       allsynced:"Konke kuvumelanisiwe.", ideas:"imibono", addedby:"Yengetshwe ngu",
+       empty:"Awekho amaqembu okwamanje",
+       emptybody:"Dala iqembu labangani bakho, noma joyina ngekhodi, bese niqala ukunquma ndawonye.",
+       invitehint:"Yabelana ngekhodi ukuze abangani bakho bajoyine" },
+  st:{ home:"Lehae", memories:"Dihopotso", profile:"Profaele", groups:"Dihlopha tsa hao", quick:"Qala kapele",
+       cantdecide:"Ha o kgone ho etsa qeto?", surprise:"Ntihakise", myactivities:"Mesebetsi ya ka",
+       create:"Theha sehlopha", join:"Kenela ka khoutu", vibelist:"Lenane la Vibe", activities:"Mesebetsi",
+       addidea:"Eketsa mohopolo", start:"Qala qeto", votenow:"Vouta jwale", members:"Ditho",
+       round:"Potoloho", voted:"ba voutile", still:"di sa ntse di le teng", waiting:"Re emetse sehlopha kaofela…",
+       closeearly:"Divoutu di lekane — koala potoloho", close:"Koala potoloho",
+       winner:"Sehlopha se na le mohlodi", planit:"Hlopha", addmemory:"Eketsa sehopotsong",
+       summary:"Kakaretso ya divoutu", yes:"E", no:"TJHE", plan:"Moro", when:"Kgetha letsatsi le nako",
+       done:"Tshwaya e le e phethileng", rate:"Tekanya bosiu", save:"Boloka sehopotso",
+       settings:"Diseting", language:"Puo", theme:"Thempe", light:"E kganyang", dark:"Lefifi",
+       signout:"Tswa", notifications:"Ditemoso", offline:"e emetse ho hokahanya",
+       allsynced:"Tsohle di hokahane.", ideas:"dikgopolo", addedby:"E kentswe ke",
+       empty:"Ha ho dihlopha hona jwale",
+       emptybody:"Theha sehlopha sa metswalle ya hao, kapa kenela ka khoutu, mme le qale ho etsa qeto mmoho.",
+       invitehint:"Arolelana khoutu ena hore metswalle ya hao e kenelle" }
+};
+let lang = "en", theme = "dark", offline = false, queued = 0, screenName = "onboarding", signedIn = false;
+const t = k => (S[lang][k] ?? S.en[k]);
+const ICONS = ["🎉","🍕","🎮","💗","⚽️","🎬","🏖️","🎧"];
+const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const OTHERS = ["Thandi","Sipho","Naledi","Kyle"];
+
+/* ----------------------------------------------------------------- state */
+const state = {
+  user: { name:"Lerato", username:"lerato", email:"lerato@vibe.app", photo:false },
+  groups: [],          // starts empty: the member creates or joins them
+  memories: [],
+  notifications: [],
+  settings: { invites:true, deadlines:true, membersOnly:true, linked:["Google"] }
+};
+let current = null;      // the group being viewed
+let currentIdea = null;  // the idea the detail screen is about
+let round = null;        // the open round, if any
+let roundGroupId = null; // the group the round belongs to
+let filter = "ALL";
+let planned = null;      // the idea the plan/memory screen is about
+let surprisePick = null;
+let currentMemoryId = null;
+let toastMsg = "";
+let joinError = "";
+let conflict = null;     // { label, mine, theirs } waiting for a decision
+let feedTimer = null;    // stands in for FCM pushes while a demo group is open
+
+const groupById = id => state.groups.find(g => g.id === id);
+const isLively = i => i.status === "SUGGESTED" || i.status === "ACTIVE";
+const newCode = () => Array.from({ length: 6 },
+  () => CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)]).join("");
+const me = () => state.user.name;
+const unread = () => state.notifications.filter(n => !n.read).length;
+
+function notify(icon, title, body, type) {
+  state.notifications.unshift({ id:"n" + Date.now() + Math.random(), icon, title, body, type, read:false });
+}
+
+/* ------------------------------------------------------- decision engine */
+/* Mirrors domain/DecisionEngine.kt: one equal YES/NO per member per idea,
+   equal totals leave the idea in, and nothing is revealed until the round ends. */
+const engine = {
+  eligible: g => g.ideas.filter(isLively),
+  tallies(g, r) {
+    return r.ideaIds.map(id => {
+      const votes = r.votes[id] || {};
+      const yes = Object.values(votes).filter(Boolean).length;
+      const no  = Object.values(votes).filter(x => !x).length;
+      const pending = g.members.length - (yes + no);
+      return { id, yes, no, pending, canProgress: yes > no, couldStillWin: yes + pending > no };
+    });
+  },
+  revealed: r => r.state !== "OPEN",
+  canCloseEarly(g, r) { return this.tallies(g, r).filter(x => x.couldStillWin).length <= 1; },
+  outcome(g, r) {
+    const survivors = this.tallies(g, r).filter(x => x.canProgress);
+    if (survivors.length === 1) return { kind:"winner", id:survivors[0].id };
+    if (survivors.length === 0) return { kind:"none" };
+    if (r.number >= 5) return { kind:"tie", ids:survivors.map(s => s.id) };
+    return { kind:"continue", ids:survivors.map(s => s.id) };
+  }
+};
+
+const roundGroup = () => (round ? groupById(roundGroupId) : null);
+
+function startRound(group) {
+  const g = group || current;
+  const ideas = g ? engine.eligible(g) : [];
+  if (ideas.length < 2) { toast("Add at least two ideas before starting a round."); return false; }
+  if (!g.owner) { toast("Only the group owner can start a round — you are a member here."); return false; }
+  const number = round && roundGroupId === g.id && round.state !== "OPEN"
+    ? Math.min(round.number + 1, 5) : (round && roundGroupId === g.id ? round.number : 1);
+  round = { number, ideaIds: ideas.map(i => i.id), votes: {}, state:"OPEN", index:0, winnerId:null };
+  roundGroupId = g.id;
+  ideas.forEach(i => { i.status = "ACTIVE"; });
+  current = g;
+  screenName = "decide";
+  simulateMembers();
+  return true;
+}
+
+/** The other members vote shortly after you - exactly like the bundled demo backend. */
+function simulateMembers() {
+  clearTimeout(simulateMembers.timer);
+  const g = roundGroup();
+  if (!round || !g || round.state !== "OPEN") return;
+  simulateMembers.timer = setTimeout(() => {
+    const others = g.members.filter(m => m !== me());
+    if (!others.length) return;
+    // The others answer only about ideas you have already voted on, so your turn is
+    // never skipped - the same rule the bundled demo backend uses.
+    round.ideaIds
+      .filter(id => (round.votes[id] || {})[me()] !== undefined)
+      .forEach(id => {
+        round.votes[id] = round.votes[id] || {};
+        others.forEach(m => { if (!(m in round.votes[id]) && Math.random() < .8)
+          round.votes[id][m] = Math.random() < .58; });   // < 58% YES, as in DemoVibeApi
+      });
+    if (!maybeCloseRound()) simulateMembers();
+    if (screenName === "decide") render();
+  }, 900);
+}
+
+/** The round is over when everyone has voted or the maths can no longer change. */
+function maybeCloseRound() {
+  const g = roundGroup();
+  if (!round || !g || round.state !== "OPEN") return false;
+  const everyoneVoted = round.ideaIds.every(id =>
+    Object.keys(round.votes[id] || {}).length >= g.members.length);
+  if (everyoneVoted || engine.canCloseEarly(g, round)) { closeRound(); return true; }
+  return false;
+}
+
+function closeRound() {
+  const g = roundGroup();
+  if (!g) return { kind:"none" };
+  round.state = "CLOSED";
+  const outcome = engine.outcome(g, round);
+  if (outcome.kind === "winner") {
+    round.winnerId = outcome.id;
+    const idea = g.ideas.find(i => i.id === outcome.id);
+    if (idea) idea.status = "WINNER";
+    notify("🏆", `Winner in ${g.name}`, `${idea ? idea.title : "A plan"} won the vote. Open the plan to pick a date and time.`, "WINNER");
+  }
+  engine.tallies(g, round).forEach(x => {
+    const idea = g.ideas.find(i => i.id === x.id);
+    if (!idea || x.id === round.winnerId) return;
+    idea.status = x.canProgress ? "ACTIVE" : "ELIMINATED";
+  });
+  return outcome;
+}
+
+/* --------------------------------------------------------------- helpers */
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+function queue(label) {
+  if (!offline) return false;
+  queued++;
+  // A queued change on a group that other members are editing can come back as a conflict.
+  if (label && current && current.members.length > 1 && label.startsWith("idea") && !conflict) {
+    conflict = { label, mine:"Sunset picnic 🌅 (your wording)", theirs:"Sunset picnic at the beach" };
+  }
+  return true;
+}
+function go(name) { screenName = name; render(); }
+function signIn() { signedIn = true; screenName = "home"; render(); }
+function signOut() { signedIn = false; screenName = "login"; render(); }
+function syncNow() {
+  if (offline || queued === 0) { render(); return; }
+  const n = queued; queued = 0;
+  toast(`${n} change${n === 1 ? "" : "s"} synced.`);
+}
+function toast(msg) { toastMsg = msg; render(); setTimeout(() => { toastMsg = ""; render(); }, 2600); }
+function canDecide(g) { return !!g && engine.eligible(g).length >= 2; }
+const avatars = names => `<div class="avatars">${names.slice(0, 5)
+  .map(n => `<span title="${esc(n)}">${esc(n[0])}</span>`).join("")}</div>`;
+
+/* ----------------------------------------------------------------- render */
+function render() {
+  const light = theme === "light";
+  const phone = document.getElementById("phone");
+  phone.dataset.theme = theme;
+  document.body.dataset.theme = theme;
+  document.getElementById("statusRight").textContent = light ? "VIBE · ☀️" : "VIBE · 🌙";
+  const tag = document.getElementById("offlineTag");
+  tag.className = offline ? "" : "hidden";
+  tag.textContent = offline ? `✈️ offline · ${queued} ${t("offline")}` : "";
+
+  /* The bar is app chrome: it is there on every screen where the member is browsing
+     (Home, a group, the Vibe List, Memories, a memory, the profile, the inbox) so the
+     three areas are always one tap apart. Focused flows - creating or joining a group,
+     adding an idea, voting, planning, settings - hide it and keep a back arrow, so a
+     task in progress cannot be abandoned with a mis-tap. */
+  const BROWSE_SCREENS = ["home", "group", "idea", "memories", "memory", "profile", "notifications", "activities"];
+  const AREA = { group:"home", idea:"home", activities:"home", memory:"memories" };
+  const bar = document.getElementById("bar");
+  bar.hidden = !signedIn || !BROWSE_SCREENS.includes(screenName);
+  const activeTab = AREA[screenName] || screenName;
+  bar.querySelectorAll(".tab").forEach(tab => {
+    tab.setAttribute("aria-selected", tab.dataset.tab === activeTab ? "true" : "false");
+    tab.querySelector("span:last-child").textContent = t(tab.dataset.tab);
+  });
+
+  const views = { onboarding, login, creategroup, joingroup, home, group:groupScreen, idea:ideaScreen,
+                  decide:decideScreen, winner:winnerScreen, surprise:surpriseScreen, plan:planScreen,
+                  activities:activitiesScreen, memories:memoriesScreen, memory:memoryScreen,
+                  profile:profileScreen, editprofile:editProfileScreen, settings:settingsScreen,
+                  password:passwordScreen, notifications:notificationsScreen };
+  const screen = document.getElementById("screen");
+  screen.innerHTML = (views[screenName] || home)();
+
+  // The centred coral plus is the quick-add: it adds an idea in a group and opens the
+  // group flow on Home.
+  const fab = document.getElementById("fab");
+  fab.hidden = !(signedIn && (screenName === "home" || screenName === "group" || screenName === "activities"));
+  fab.dataset.action = screenName === "home" ? "new-group" : "add";
+  screen.scrollTop = 0;
+}
+
+const topBar = (title, back) => `
+  <div class="topbar">
+    ${back ? `<button class="back" data-go="${back}" aria-label="Back">‹</button>` : ""}
+    <div class="grow title">${esc(title)}</div>
+    <button class="back" data-go="notifications" aria-label="${t("notifications")}">🔔${unread() ? " " + unread() : ""}</button>
+  </div>`;
+
+const card = (icon, title, body) => `
+  <div class="card"><div class="row"><span class="emoji">${icon}</span>
+    <div class="grow"><div class="title">${esc(title)}</div><div class="sub">${esc(body)}</div></div></div></div>`;
+
+const rowLine = (icon, title, sub, dest) => `
+  <div class="card tap" ${dest ? `data-go="${dest}"` : `data-action="soon"`}>
+    <div class="row"><span class="emoji">${icon}</span>
+      <div class="grow"><div class="title">${esc(title)}</div><div class="sub">${esc(sub)}</div></div>
+      <span class="muted">›</span></div></div>`;
+
+const stat = (v, label) => `<div class="card center grow"><div class="title" style="font-size:20px">${v}</div>
+  <div class="sub">${label}</div></div>`;
+
+const toggle = (key, label) => `
+  <div class="card tap" data-toggle="${key}"><div class="row"><div class="grow">
+    <div class="title">${esc(label)}</div></div>
+    <span class="pill ${state.settings[key] ? "on" : ""}">${state.settings[key] ? "On" : "Off"}</span></div></div>`;
+
+const greeting = () => { const h = new Date().getHours();
+  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; };
+
+function layer() {
+  const wait = queued > 0
+    ? `<div class="banner" data-action="reconnect">☁️ ${queued} change${queued === 1 ? "" : "s"} ${t("offline")} — tap here to reconnect</div>` : "";
+  const clash = conflict
+    ? `<div class="banner bad" data-go="settings">⚠️ Conflict on “${esc(conflict.label)}” — decide which version wins</div>` : "";
+  const note = toastMsg ? `<div class="banner ok">${esc(toastMsg)}</div>` : "";
+  return wait + clash + note;
+}
+
+/* --------------------------------------------------------------- screens */
+function onboarding() {
+  return `
+    <div class="logo">🎉💗🎮</div>
+    <div class="wordmark">VIBE</div>
+    <p class="center">Stop arguing. Start vibing.</p>
+    ${card("👥","Make a group","Add your people and their ideas in one place.")}
+    ${card("🗳️","Vote YES or NO","One equal vote each, so nobody carries the group.")}
+    ${card("📸","Keep the memory","Plan it, then save the photos, caption and rating.")}
+    <button class="primary" data-action="start-app">Get started</button>`;
+}
+
+function login() {
+  return `
+    <div class="logo">🎉</div>
+    <div class="wordmark" style="font-size:26px">VIBE</div>
+    ${layer()}
+    <p class="center">Welcome back.</p>
+    <label for="email">Email</label>
+    <input id="email" value="lerato@vibe.app" autocomplete="email">
+    <label for="password">Password</label>
+    <input id="password" type="password" value="••••••••" autocomplete="current-password">
+    <button class="primary" data-action="login">Log in</button>
+    <button class="ghost" data-action="login">Continue with Google</button>
+    <button class="link" data-action="recover" style="width:100%">Forgot password?</button>
+    <p class="center muted">New here? Create an account</p>`;
+}
+
+function creategroup() {
+  const icons = ICONS.map(icon => `
+    <span class="pill choice ${icon === groupDraft.icon ? "on" : ""}" data-icon="${icon}">${icon}</span>`).join("");
+  return `
+    ${topBar(t("create"), "home")}
+    ${layer()}
+    <p>Groups keep one Vibe List, one round at a time and one set of memories.</p>
+    <label for="groupname">Group name</label>
+    <input id="groupname" data-field="groupname" value="${esc(groupDraft.name)}" placeholder="Friday Night Crew" maxlength="40">
+    <label>Group icon</label>
+    <div>${icons}</div>
+    <button class="primary" data-action="create" ${groupDraft.name.trim() ? "" : "disabled"}>${t("create")}</button>
+    <button class="ghost" data-go="joingroup">${t("join")}</button>`;
+}
+
+function joingroup() {
+  return `
+    ${topBar(t("join"), signedIn ? "home" : "login")}
+    ${layer()}
+    <p>Ask the group owner for their six-character invite code. In this prototype any code
+       that is not one of your own opens a friend's group.</p>
+    <label for="joincode">Invite code</label>
+    <input id="joincode" data-field="joincode" value="${esc(joinDraft)}" placeholder="PARTY7"
+      style="text-transform:uppercase;letter-spacing:3px" maxlength="6">
+    ${joinError ? `<div class="banner bad">${esc(joinError)}</div>` : ""}
+    <button class="primary" data-action="join" ${joinDraft.trim() ? "" : "disabled"}>${t("join")}</button>`;
+}
+
+function home() {
+  const cards = state.groups.map(g => `
+    <div class="card tap" data-group="${g.id}">
+      <div class="row"><span class="emoji">${g.icon}</span>
+        <div class="grow"><div class="title">${esc(g.name)}</div>
+          <div class="sub">${g.members.length} ${t("members")} · ${g.ideas.length} ${t("ideas")}
+            ${g.owner ? " · you own it" : " · you are a member"}</div></div>
+        <span class="muted">›</span></div>
+    </div>`).join("");
+  const live = round && round.state === "OPEN";
+  const openIn = live ? roundGroup() : null;
+  const empty = !state.groups.length ? `
+    <div class="card center" style="padding:24px">
+      <div style="font-size:34px">👥</div>
+      <div class="title" style="margin:6px 0">${t("empty")}</div>
+      <div class="sub">${t("emptybody")}</div>
+    </div>` : "";
+  return `
+    ${topBar(`${greeting()}, ${state.user.name} 👋`, null)}
+    ${layer()}
+    ${live ? `<div class="banner" data-go="decide">🗳️ ${t("round")} ${round.number} is open in
+      ${esc(openIn ? openIn.name : "")} — tap to vote</div>` : ""}
+    <h2>${t("groups")}</h2>
+    ${empty}
+    ${cards}
+    <div class="row" style="gap:8px">
+      <button class="ghost" style="margin:0" data-action="new-group">${t("create")}</button>
+      <button class="ghost" style="margin:0" data-go="joingroup">${t("join")}</button>
+    </div>
+    <h2>${t("quick")}</h2>
+    <div class="card tap" data-action="cantdecide"><div class="row"><span class="emoji">🤔</span>
+      <div class="grow"><div class="title">${t("cantdecide")}</div>
+      <div class="sub">Run YES/NO rounds until one plan wins</div></div></div></div>
+    <div class="card tap" data-action="surprise"><div class="row"><span class="emoji">🎲</span>
+      <div class="grow"><div class="title">${t("surprise")}</div>
+      <div class="sub">Let VIBE propose one eligible activity</div></div></div></div>
+    <div class="card tap" data-go="activities"><div class="row"><span class="emoji">📋</span>
+      <div class="grow"><div class="title">${t("myactivities")}</div>
+      <div class="sub">Ideas you added to your groups</div></div></div></div>`;
+}
+
+function groupScreen() {
+  if (!current) return `${topBar(t("groups"), "home")}<p>Create a group first.</p>`;
+  const pills = ["ALL","SUGGESTED","COMPLETED","FAVOURITES"].map(f => {
+    const label = f === "ALL" ? "All" : f.charAt(0) + f.slice(1).toLowerCase();
+    return `<span class="pill ${filter === f ? "on" : ""}" data-filter="${f}">${label}</span>`;
+  }).join("");
+  const visible = current.ideas.filter(i => {
+    if (filter === "SUGGESTED") return isLively(i);
+    if (filter === "COMPLETED") return i.status === "COMPLETED";
+    if (filter === "FAVOURITES") return i.fav;
+    return true;
+  });
+  const live = round && roundGroupId === current.id && round.state === "OPEN";
+  const list = visible.map(i => {
+    const tag = i.status === "ELIMINATED" ? `<span class="pill">Eliminated</span>`
+              : i.status === "WINNER" ? `<span class="pill ok">Winner 🏆</span>`
+              : i.status === "COMPLETED" ? `<span class="pill ok">Done ✓</span>` : "";
+    const voters = round && roundGroupId === current.id ? Object.keys((round.votes[i.id] || {})).length : 0;
+    return `
+      <div class="card tap" data-idea="${i.id}">
+        <div class="row"><span class="emoji">${i.icon}</span>
+          <div class="grow"><div class="title">${esc(i.title)}</div>
+            <div class="sub">${t("addedby")} ${esc(i.by)} · ${voters}/${current.members.length} ${t("voted")}</div>
+            ${tag}</div>
+          <button class="back" data-fav="${i.id}" aria-label="Favourite">${i.fav ? "⭐" : "☆"}</button></div>
+      </div>`;
+  }).join("");
+  return `
+    ${topBar(`${current.icon} ${current.name}`, "home")}
+    ${layer()}
+    <div class="card"><div class="row"><div class="grow">
+      <div class="sub">Invite code · ${t("invitehint")}</div>
+      <div class="code">${current.code}</div></div>
+      <span class="pill">${current.members.length} ${t("members")}</span></div></div>
+    <div class="card"><div class="row">${avatars(current.members)}
+      <div class="grow sub">${current.members.join(", ")}${current.owner ? " · you own it" : " · you are a member"}</div></div></div>
+    ${live ? `<button class="primary" data-go="decide">${t("votenow")} — ${t("round")} ${round.number}</button>` : `
+    <div class="row" style="gap:8px">
+      <button class="ghost" style="margin:0" data-action="add">${t("addidea")}</button>
+      <button class="primary" style="margin:0" data-action="start" ${canDecide(current) && current.owner ? "" : "disabled"}>${t("start")}</button>
+    </div>`}
+    ${!current.owner ? `<p class="muted">Only ${esc(current.members.find(m => m !== me()) || "the owner")} can start a round here — you vote when it opens.</p>` : ""}
+    <h2>${t("vibelist")}</h2>
+    <div>${pills}</div>
+    ${list || `<p>Nothing here yet — add an idea and start a round.</p>`}`;
+}
+
+function ideaScreen() {
+  const idea = current && current.ideas.find(i => i.id === currentIdea);
+  if (!idea) return `${topBar(t("vibelist"), "group")}<p>That idea is gone.</p>`;
+  const mine = idea.by === me();
+  return `
+    ${topBar(idea.title, "group")}
+    ${layer()}
+    <div class="card center" style="padding:26px">
+      <div class="big">${idea.icon}</div>
+      <div class="title" style="font-size:20px;margin-top:8px">${esc(idea.title)}</div>
+      <div class="sub">${t("addedby")} ${esc(idea.by)} · ${esc(current.name)}</div>
+      ${idea.status !== "SUGGESTED" ? `<span class="pill ok">${idea.status}</span>` : ""}
+    </div>
+    <label for="ideatitle">Title</label>
+    <input id="ideatitle" data-field="ideatitle" value="${esc(idea.title)}" maxlength="60">
+    <label>Icon</label>
+    <div>${ICONS.map(icon => `<span class="pill choice ${icon === idea.icon ? "on" : ""}" data-icon="${icon}">${icon}</span>`).join("")}</div>
+    <button class="primary" data-action="save-idea">Save idea</button>
+    <button class="ghost" data-action="plan-idea">${t("planit")}</button>
+    <button class="ghost" data-action="fav-idea">${idea.fav ? "Remove from favourites" : "Add to favourites"}</button>
+    ${mine ? `<button class="ghost danger" data-action="delete-idea">Delete idea</button>` : ""}`;
+}
+
+function decideScreen() {
+  const g = roundGroup();
+  if (!round || !g) return `${topBar("Decide For Us","home")}<p>No round is open. Start one from a group.</p>`;
+  const tallies = engine.tallies(g, round);
+  const revealed = engine.revealed(round);
+  const total = round.ideaIds.length;
+  const mineDone = !revealed && round.index >= total;
+  const idea = g.ideas.find(i => i.id === round.ideaIds[Math.min(round.index, total - 1)]);
+  const voters = new Set(Object.values(round.votes).flatMap(v => Object.keys(v))).size;
+  const votedNames = new Set(Object.keys(round.votes[idea.id] || {}));
+
+  const voteRow = (!revealed && !mineDone) ? `
+    <div class="row" style="gap:12px;margin-top:14px">
+      <button class="nobtn" data-vote="false">${t("no")}</button>
+      <button class="yesbtn" data-vote="true">${t("yes")}</button>
+    </div>` : "";
+
+  const summary = tallies.map(x => {
+    const i = g.ideas.find(a => a.id === x.id);
+    const mark = x.canProgress ? `<span class="check">survives</span>` : `<span class="muted">eliminated</span>`;
+    return `<div class="row" style="margin:6px 0"><span class="emoji">${i.icon}</span>
+      <div class="grow"><div class="sub">${esc(i.title)}</div></div>
+      <div class="sub">✅ ${x.yes} · ❌ ${x.no} · ⏳ ${x.pending} · ${mark}</div></div>`;
+  }).join("");
+
+  const outcome = revealed ? engine.outcome(g, round) : null;
+  const finisher = !outcome ? "" :
+      outcome.kind === "winner" ? `<button class="primary" data-go="winner">${t("winner")} 🏆</button>`
+    : outcome.kind === "continue" ? `<button class="primary" data-action="next-round">${t("round")} ${round.number + 1} →</button>`
+    : outcome.kind === "tie" ? `<button class="primary" data-action="next-round">Level after 5 rounds — keep going →</button>`
+    : `<p>Nothing survived that round — every idea was voted down. Add a fresh idea and go again.</p>
+       <button class="primary" data-action="add">${t("addidea")}</button>`;
+
+  return `
+    ${topBar(`${t("round")} ${round.number} · ${g.name}`, "group")}
+    ${layer()}
+    <p>${voters}/${g.members.length} ${t("voted")} · ${tallies.filter(x => x.canProgress).length} ${t("still")}
+       · ${esc(g.name)}</p>
+    ${mineDone ? `
+      <div class="card center" style="padding:24px"><div style="font-size:26px">⏳</div>
+        <div class="title">${t("waiting")}</div>
+        <div class="sub">${voters}/${g.members.length} ${t("voted")}</div></div>` : `
+      <div class="card" style="padding:16px">
+        <div class="sub">Idea ${Math.min(round.index, total - 1) + 1} of ${total}</div>
+        <div class="row" style="margin-top:6px"><span class="emoji" style="font-size:30px">${idea.icon}</span>
+          <div class="grow"><div class="title" style="font-size:19px">${esc(idea.title)}</div>
+            <div class="sub">${t("addedby")} ${esc(idea.by)}</div></div></div>
+        ${voteRow}
+        ${votedNames.size ? `<div class="row" style="margin-top:10px">${avatars([...votedNames])}
+          <span class="sub">${votedNames.size} of ${g.members.length} voted</span></div>` : ""}
+        <p class="muted">Your vote stays private until the round closes.</p>
+      </div>`}
+    ${revealed ? `<h2>${t("summary")}</h2>${summary}` : ""}
+    ${finisher}
+    ${!revealed && engine.canCloseEarly(g, round) && !mineDone
+        ? `<button class="ghost" data-action="close">${t("closeearly")}</button>` : ""}`;
+}
+
+function winnerScreen() {
+  const g = roundGroup();
+  const idea = round && round.winnerId && g ? g.ideas.find(i => i.id === round.winnerId) : null;
+  if (!idea) return `${topBar(t("winner"),"home")}<p>No winner yet.</p>`;
+  const votes = round.votes[idea.id] || {};
+  const yes = Object.values(votes).filter(Boolean).length, no = Object.values(votes).filter(x => !x).length;
+  return `
+    ${topBar(t("winner"), "home")}
+    <div class="confetti">${confetti()}</div>
+    <div class="card center" style="padding:26px">
+      <div class="big">${idea.icon}</div>
+      <div class="title" style="font-size:22px;margin:8px 0">${esc(idea.title)}</div>
+      <div class="sub">${esc(g.name)} · ✅ ${yes} · ❌ ${no} · ${t("round").toLowerCase()} ${round.number}</div>
+      <span class="pill ok">Winner 🏆</span>
+    </div>
+    <button class="primary" data-action="plan">${t("planit")}</button>
+    <button class="ghost" data-action="memory">${t("addmemory")}</button>`;
+}
+
+function surpriseScreen() {
+  if (!current) return `${topBar(t("surprise"), "home")}
+    <p>No eligible ideas yet — add a couple to a group first.</p>
+    <button class="primary" data-go="home">Back to Home</button>`;
+  const pool = engine.eligible(current);
+  if (!pool.length) return `${topBar(t("surprise"), "home")}
+    <p>No eligible ideas in ${esc(current.name)} — add one to the Vibe List.</p>
+    <button class="primary" data-action="add">${t("addidea")}</button>`;
+  if (!surprisePick || !pool.some(i => i.id === surprisePick.id))
+    surprisePick = pool[Math.floor(Math.random() * pool.length)];
+  return `
+    ${topBar(t("surprise"), "home")}
+    ${layer()}
+    <p class="center">${t("surprise")} 🎲 · ${esc(current.name)}</p>
+    <div class="card center" style="padding:26px">
+      <div class="big">${surprisePick.icon}</div>
+      <div class="title" style="font-size:21px;margin-top:8px">${esc(surprisePick.title)}</div>
+      <div class="sub">${t("addedby")} ${esc(surprisePick.by)}</div>
+    </div>
+    <div class="row" style="gap:12px">
+      <button class="nobtn" data-action="skip">Skip</button>
+      <button class="yesbtn" data-action="accept">Lock it in</button>
+    </div>`;
+}
+
+function planScreen() {
+  const idea = planned || (round && round.winnerId && roundGroup()
+    ? roundGroup().ideas.find(i => i.id === round.winnerId) : null);
+  if (!idea) return `${topBar(t("plan"),"home")}<p>Nothing to plan yet.</p>`;
+  const done = state.memories.some(m => m.title === idea.title && m.group === (current ? current.id : null));
+  return `
+    ${topBar(t("plan"), "home")}
+    ${layer()}
+    <div class="card"><div class="row"><span class="emoji">${idea.icon}</span>
+      <div class="grow"><div class="title">${esc(idea.title)}</div>
+        <div class="sub">${t("when")}${current ? " · " + esc(current.name) : ""}</div></div></div></div>
+    <label for="date">Date</label><input id="date" type="date" value="2026-09-26">
+    <label for="time">Time</label><input id="time" type="time" value="19:30">
+    <button class="primary" data-action="save-plan">${t("planit")}</button>
+    <button class="ghost" data-action="complete">${done ? t("done") + " ✓" : t("done")}</button>`;
+}
+
+function activitiesScreen() {
+  const rows = [];
+  state.groups.forEach(g => g.ideas.forEach(i => rows.push({ g, i })));
+  if (!rows.length) return `${topBar(t("myactivities"), "home")}
+    <div class="card center" style="padding:24px"><div style="font-size:32px">📋</div>
+      <div class="title" style="margin:6px 0">Nothing yet</div>
+      <div class="sub">Ideas you add to a group show up here, whichever group they belong to.</div></div>
+    <button class="primary" data-action="new-group">${t("create")}</button>`;
+  const list = rows.map(({ g, i }) => `
+    <div class="card tap" data-act="${g.id}:${i.id}">
+      <div class="row"><span class="emoji">${i.icon}</span>
+        <div class="grow"><div class="title">${esc(i.title)}</div>
+          <div class="sub">${esc(g.name)} · ${esc(i.by)} · ${i.status.toLowerCase()}</div></div>
+        <span class="muted">›</span></div>
+    </div>`).join("");
+  return `${topBar(t("myactivities"), "home")}${layer()}
+    <p>${rows.length} ideas across ${state.groups.length} groups.</p>${list}`;
+}
+
+function memoriesScreen() {
+  if (!state.memories.length) return `${topBar(t("memories"), null)}${layer()}
+    <div class="card center" style="padding:24px"><div style="font-size:34px">📸</div>
+      <div class="title" style="margin:6px 0">No memories yet</div>
+      <div class="sub">Finish a plan and mark it as done — the caption, the photos and the
+        rating land here.</div></div>
+    <button class="primary" data-go="home">Back to Home</button>`;
+  const tiles = state.memories.map(m => `
+    <div class="card tap" data-memory="${m.id}">
+      <div class="row"><span class="emoji">${m.icon}</span>
+        <div class="grow"><div class="title">${esc(m.title)}</div>
+          <div class="sub">${esc(m.groupName || "")} · ${m.when} · ${m.photos} photos</div></div>
+        <div class="stars">${"★".repeat(m.rating)}${"☆".repeat(5 - m.rating)}</div></div>
+    </div>`).join("");
+  return `${topBar(t("memories"), null)}${layer()}
+    <p>${state.memories.length} ${t("memories").toLowerCase()} · ${state.memories.filter(m => m.rating >= 4).length} rated 4+</p>
+    ${tiles}`;
+}
+
+function memoryScreen() {
+  const m = state.memories.find(x => x.id === currentMemoryId);
+  if (!m) return memoriesScreen();
+  const stars = [1,2,3,4,5].map(n => `<span data-rate="${n}">${n <= m.rating ? "★" : "☆"}</span>`).join("");
+  return `${topBar(m.title, "memories")}
+    <div class="card" style="height:150px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:34px">
+      ${"🖼️".repeat(m.photos)}</div>
+    <label for="caption">Caption</label>
+    <input id="caption" data-field="caption" value="${esc(m.caption)}" maxlength="280">
+    <div class="stars">${stars}</div>
+    <p class="muted">${t("rate")} · ${m.rating}/5 · ${esc(m.groupName || "")}</p>
+    <button class="ghost" data-action="add-photo">Add a photo</button>`;
+}
+
+function profileScreen() {
+  const decisions = state.memories.length;
+  const activities = state.groups.reduce((n, g) => n + g.ideas.length, 0);
+  const initials = state.user.name[0];
+  return `${topBar(t("profile"), null)}
+    ${layer()}
+    <div class="row" style="margin:10px 0">
+      <div class="avatar" style="width:64px;height:64px;border-radius:50%;
+        background:linear-gradient(135deg,var(--coral),var(--lilac));display:flex;align-items:center;
+        justify-content:center;font-size:24px;font-weight:800;color:#2a0b12">${state.user.photo ? "🙂" : initials}</div>
+      <div><div class="title" style="font-size:20px">${state.user.name}</div>
+        <div class="sub">@${state.user.username} · ${state.user.email}</div></div>
+    </div>
+    <div class="row" style="gap:8px">
+      ${stat(decisions,"decisions")}${stat(activities,"activities")}${stat(state.groups.length,"groups")}
+    </div>
+    <h2>Account</h2>
+    ${rowLine("✏️","Edit Profile","Name, username, photo", "editprofile")}
+    ${rowLine("👥","My Groups", state.groups.length + " groups", "home")}
+    ${rowLine("🗒️","My Activities", activities + " ideas", "activities")}
+    ${rowLine("⚙️", t("settings"), "Notifications, privacy, theme", "settings")}
+    ${rowLine("🌍", t("language"), t("language") + " · " + t("theme"), "settings")}
+    ${rowLine("💬","Help & Support","support@vibe.app")}`;
+}
+
+function editProfileScreen() {
+  const draft = profileDraft;
+  return `${topBar("Edit Profile", "profile")}
+    <label for="displayname">Display name</label>
+    <input id="displayname" data-field="displayname" value="${esc(draft.name)}" maxlength="40">
+    <label for="username">Username</label>
+    <input id="username" data-field="username" value="${esc(draft.username)}" maxlength="20">
+    <label for="photobtn">Photo</label>
+    <button class="ghost" data-action="pick-photo">${state.user.photo ? "Change photo" : "Choose a photo"}</button>
+    <button class="primary" data-action="save-profile">Save profile</button>`;
+}
+
+function settingsScreen() {
+  const linked = state.settings.linked;
+  return `${topBar(t("settings"), "profile")}
+    ${layer()}
+    <h2>${t("notifications")}</h2>
+    ${toggle("invites", "Invitations and new ideas")}
+    ${toggle("deadlines", "Vote deadlines and winners")}
+    <h2>Privacy</h2>
+    ${toggle("membersOnly", "Group members only")}
+    <h2>${t("theme")}</h2>
+    <div><span class="pill ${theme === "dark" ? "on" : ""}" data-theme="dark">🌙 ${t("dark")}</span>
+      <span class="pill ${theme === "light" ? "on" : ""}" data-theme="light">☀️ ${t("light")}</span></div>
+    <h2>${t("language")}</h2>
+    <div>
+      <span class="pill ${lang === "en" ? "on" : ""}" data-lang="en">English</span>
+      <span class="pill ${lang === "zu" ? "on" : ""}" data-lang="zu">isiZulu</span>
+      <span class="pill ${lang === "st" ? "on" : ""}" data-lang="st">Sesotho</span>
+    </div>
+    <h2>Account</h2>
+    ${rowLine("🔒","Change password","Salted one-way hash on the server", "password")}
+    <div class="card"><div class="row"><span class="emoji">🔗</span>
+      <div class="grow"><div class="title">Linked accounts</div>
+        <div class="sub">${linked.length ? linked.join(", ") : "None linked"}</div></div>
+      <button class="ghost" style="margin:0" data-action="link">${linked.includes("Google") ? "Unlink" : "Link Google"}</button></div></div>
+    ${rowLine("🌍", t("language"), "English · isiZulu · Sesotho", "settings")}
+    ${rowLine("💬","Help & Support","support@vibe.app")}
+    <h2>Offline</h2>
+    <div class="card"><div class="row">
+      <div class="grow"><div class="title">${queued === 0 ? t("allsynced") : `${queued} ${t("offline")}`}</div>
+        <div class="sub">${offline ? "Airplane mode is on" : "Connected"}${conflict ? " · 1 conflict to settle" : ""}</div></div>
+      <button class="ghost" style="margin:0" data-action="reconnect">${offline ? "Reconnect" : "Force sync"}</button></div></div>
+    ${conflict ? `
+    <h2>Conflicts</h2>
+    <div class="card">
+      <div class="title">${esc(conflict.label)}</div>
+      <div class="sub">Yours: ${esc(conflict.mine)}</div>
+      <div class="sub">Theirs: ${esc(conflict.theirs)}</div>
+      <div class="row" style="gap:8px">
+        <button class="ghost" style="margin:8px 0 0" data-action="keep-mine">Keep mine</button>
+        <button class="ghost" style="margin:8px 0 0" data-action="keep-theirs">Keep theirs</button>
+      </div>
+    </div>` : ""}
+    <button class="ghost" data-action="signout">${t("signout")}</button>`;
+}
+
+function passwordScreen() {
+  return `${topBar("Change password", "settings")}
+    ${layer()}
+    <label for="currentpw">Current password</label>
+    <input id="currentpw" type="password" value="••••••••">
+    <label for="newpw">New password</label>
+    <input id="newpw" type="password" placeholder="At least 8 characters with a number">
+    <button class="primary" data-action="save-password">Save password</button>
+    <p class="muted">Saved as a salted PBKDF2-SHA256 hash — never in plain text.</p>`;
+}
+
+function notificationsScreen() {
+  if (!state.notifications.length) return `${topBar(t("notifications"), "home")}
+    <div class="card center" style="padding:24px"><div style="font-size:30px">🔔</div>
+      <div class="title" style="margin:6px 0">Nothing yet</div>
+      <div class="sub">Invitations, new ideas, vote deadlines and winners land here.</div></div>`;
+  const list = state.notifications.map(n => `
+    <div class="card" data-read="${n.id}"><div class="row"><span class="emoji">${n.icon}</span>
+      <div class="grow"><div class="title" style="${n.read ? "" : "font-weight:800"}">${esc(n.title)}</div>
+        <div class="sub">${esc(n.body)}</div></div></div></div>`).join("");
+  return `${topBar(t("notifications"), "home")}
+    <button class="ghost" data-action="read-all">Mark all as read</button>${list}`;
+}
+
+function confetti() {
+  const colors = ["#FF6B6B","#B79CFF","#4FD1A5","#FFD166"];
+  let out = "";
+  for (let i = 0; i < 26; i++) {
+    out += `<i style="left:${(i * 3.7) % 100}%;background:${colors[i % 4]};
+      animation-duration:${2.2 + (i % 5) * .5}s;animation-delay:${(i % 7) * .25}s"></i>`;
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------- behaviour */
+const groupDraft = { name: "", icon: ICONS[0] };
+const profileDraft = { name: "", username: "" };
+let joinDraft = "";
+
+function createGroup() {
+  const name = groupDraft.name.trim();
+  if (!name) { toast("Give the group a name first."); return; }
+  const id = "g" + Date.now();
+  const group = { id, name, icon: groupDraft.icon, code: newCode(), owner: true,
+                  members: [me()], ideas: [] };
+  state.groups.unshift(group);
+  current = group;
+  groupDraft.name = "";
+  groupDraft.icon = ICONS[0];
+  queue();
+  toast(`“${name}” created — share the code ${group.code}.`);
+  go("group");
+}
+
+function joinGroup() {
+  const code = joinDraft.trim().toUpperCase();
+  if (code.length !== 6 || [...code].some(c => !CODE_ALPHABET.includes(c))) {
+    joinError = "An invite code is six characters, letters and numbers (no O or I).";
+    render(); return;
+  }
+  if (state.groups.some(g => g.code === code)) {
+    joinError = "That is one of your own groups — you are already in it.";
+    render(); return;
+  }
+  // Stands in for another student's group on the server: you join as a member, not an owner.
+  const host = OTHERS[Math.abs(code.charCodeAt(0)) % OTHERS.length];
+  const id = "g" + Date.now();
+  const ideas = [
+    { id: id + "-1", title: "Movie night at the mall", icon: "🎬", by: host, status: "SUGGESTED", fav: false },
+    { id: id + "-2", title: "Sunday braai", icon: "🍖", by: OTHERS[1], status: "SUGGESTED", fav: false },
+    { id: id + "-3", title: "Rooftop sunset photos", icon: "🌅", by: OTHERS[2], status: "SUGGESTED", fav: false }
+  ];
+  const group = { id, name: `${host}'s Crew`, icon: "🎬", code, owner: false,
+                  members: [host, me(), OTHERS[1], OTHERS[2]], ideas };
+  state.groups.unshift(group);
+  current = group;
+  joinDraft = "";
+  joinError = "";
+  queue();
+  if (state.settings.invites) notify("👥", `You joined ${host}'s Crew`, `Invite code ${code} accepted. Add your first idea.`, "INVITE");
+  toast(`You joined ${host}'s Crew as a member.`);
+  go("group");
+  scheduleHostRound(group);
+  scheduleMemberIdea(group);
+}
+
+/** The owner of a joined group opens a round shortly after you arrive (an FCM push). */
+function scheduleHostRound(group) {
+  clearTimeout(scheduleHostRound.timer);
+  scheduleHostRound.timer = setTimeout(() => {
+    if (!state.groups.includes(group) || engine.eligible(group).length < 2) return;
+    startRoundAsOwner(group);
+    if (state.settings.deadlines)
+      notify("⏰", `${group.name}: vote before the round closes`,
+        `${group.members[0]} started a round — your YES or NO is still missing.`, "DEADLINE");
+    if (screenName !== "decide") toast(`${esc(group.members[0])} started a round in ${group.name}.`);
+    if (["home","group","decide","activities"].includes(screenName)) render();
+  }, 1500);
+}
+
+/** Same rules as startRound, but the other member is the owner. */
+function startRoundAsOwner(group) {
+  const ideas = engine.eligible(group);
+  if (ideas.length < 2) return false;
+  round = { number: 1, ideaIds: ideas.map(i => i.id), votes: {}, state:"OPEN", index:0, winnerId:null };
+  roundGroupId = group.id;
+  ideas.forEach(i => { i.status = "ACTIVE"; });
+  simulateMembers();
+  return true;
+}
+
+/** Another member adds an idea while you are in the group - a second push. */
+function scheduleMemberIdea(group) {
+  clearTimeout(scheduleMemberIdea.timer);
+  scheduleMemberIdea.timer = setTimeout(() => {
+    if (!state.groups.includes(group) || group.owner) return;
+    const pick = ["Drive to Hartbeespoort", "Board games and pizza", "Karaoke in Melville"];
+    const title = pick[group.ideas.length % pick.length];
+    if (group.ideas.some(i => i.title === title)) return;
+    const by = group.members[group.ideas.length % group.members.length] || group.members[0];
+    group.ideas.push({ id: "i" + Date.now(), title, icon: "🎲", by, status: "SUGGESTED", fav: false });
+    if (state.settings.invites)
+      notify("🎬", `${by} added ${title}`, `${group.name} has a new idea on the Vibe List.`, "NEW_ACTIVITY");
+    if (current === group && screenName === "group") render();
+  }, 2600);
+}
+
+/* One delegated listener; the navigation bar is part of the app chrome, so nothing
+   inside it is re-bound when a screen renders. */
+document.addEventListener("click", event => {
+  const el = event.target.closest("[data-go],[data-tab],[data-group],[data-idea],[data-act],[data-filter]," +
+    "[data-fav],[data-memory],[data-rate],[data-theme],[data-lang],[data-icon],[data-action],[data-vote]," +
+    "[data-toggle],[data-read]");
+  if (!el) return;
+  // A hidden bar must be inert: it steps aside during focused flows, and nothing that is
+  // not on screen may navigate.
+  if (el.closest(".bar") && document.getElementById("bar").hidden) return;
+  const d = el.dataset;
+
+  // A tab selects its area: from a sub-screen it returns to that area's root, and a
+  // second tap on the tab you are already on does nothing.
+  if (d.tab) {
+    const AREA = { group:"home", idea:"home", activities:"home", memory:"memories" };
+    const area = AREA[screenName] || screenName;
+    if (d.tab === area && screenName !== d.tab) return go(d.tab);
+    if (d.tab === screenName) return;
+    return go(d.tab);
+  }
+  if (d.go)    return go(d.go);
+  if (d.group) { current = groupById(d.group); filter = "ALL"; go("group"); return scheduleMemberIdea(current); }
+  if (d.filter){ filter = d.filter; return render(); }
+  if (d.idea)  { currentIdea = d.idea; return go("idea"); }
+  if (d.act)   { const [gid, iid] = d.act.split(":");
+                 current = groupById(gid); currentIdea = iid; filter = "ALL"; return go("idea"); }
+  if (d.fav)   { const idea = current.ideas.find(i => i.id === d.fav); idea.fav = !idea.fav; queue();
+                 return render(); }
+  if (d.memory){ currentMemoryId = d.memory; return go("memory"); }
+  if (d.go === "editprofile") {
+    profileDraft.name = state.user.name;
+    profileDraft.username = state.user.username;
+  }
+  if (d.rate)  { state.memories.find(x => x.id === currentMemoryId).rating = +d.rate; queue(); return render(); }
+  if (d.theme) { theme = d.theme; return render(); }
+  if (d.lang)  { lang = d.lang; return render(); }
+  if (d.icon)  {
+    if (screenName === "creategroup") groupDraft.icon = d.icon;
+    else if (screenName === "idea") { const idea = current.ideas.find(i => i.id === currentIdea); idea.icon = d.icon; }
+    return render();
+  }
+  if (d.toggle) { state.settings[d.toggle] = !state.settings[d.toggle]; return render(); }
+  if (d.read)   { const n = state.notifications.find(x => x.id === d.read); n.read = true; return render(); }
+
+  if (d.vote !== undefined) {
+    if (!round || engine.revealed(round) || round.index >= round.ideaIds.length) return;
+    const id = round.ideaIds[round.index];
+    round.votes[id] = Object.assign({}, round.votes[id], { [me()]: d.vote === "true" });
+    round.index++;
+    if (queue("vote")) toast("Vote saved offline — it will sync when you reconnect.");
+    // Your vote may be the one that completes the round (a group of one, or the last
+    // member to answer): the engine treats that as "everyone has voted".
+    if (!maybeCloseRound() && round.index >= round.ideaIds.length) simulateMembers();
+    return render();
+  }
+
+  switch (d.action) {
+    case "start-app": screenName = "login"; return render();
+    case "login":     return signIn();
+    case "signout":   return signOut();
+    case "recover":   return toast("A reset link would be e-mailed to lerato@vibe.app.");
+    case "new-group": groupDraft.name = ""; return go("creategroup");
+    case "add": {
+      const title = prompt("New idea for the Vibe List:", "Sunset picnic 🌅");
+      if (title && title.trim()) {
+        const icon = ICONS[current.ideas.length % ICONS.length];
+        current.ideas.unshift({ id:"i" + Date.now(), title:title.trim(), icon,
+          by:me(), status:"SUGGESTED", fav:false });
+        queue("idea") ? toast("Saved offline — it will sync when you reconnect.")
+                      : toast("Added to the Vibe List.");
+      }
+      return render();
+    }
+    case "save-idea": {
+      const idea = current.ideas.find(i => i.id === currentIdea);
+      const field = document.getElementById("ideatitle");
+      const next = (field && field.value.trim()) || idea.title;
+      if (next !== idea.title) { idea.title = next; queue("idea"); toast("Idea updated."); }
+      else toast("Nothing changed.");
+      return render();
+    }
+    case "fav-idea": {
+      const idea = current.ideas.find(i => i.id === currentIdea);
+      idea.fav = !idea.fav; queue(); return render();
+    }
+    case "plan-idea": {
+      planned = current.ideas.find(i => i.id === currentIdea); return go("plan");
+    }
+    case "delete-idea": {
+      const idea = current.ideas.find(i => i.id === currentIdea);
+      if (idea && idea.by === me()) {
+        current.ideas = current.ideas.filter(i => i.id !== idea.id);
+        queue(); toast("Idea deleted.");
+      }
+      return go("group");
+    }
+    case "create":  return createGroup();
+    case "join":    return joinGroup();
+    case "start":   startRound(current); return render();
+    case "next-round": startRound(roundGroup()); return render();
+    case "close":   closeRound(); return render();
+    case "cantdecide": {
+      // Prefer a group you own that still has two ideas to choose between; otherwise
+      // open the best candidate and let its owner start the round.
+      const owned = state.groups.filter(g => g.owner && engine.eligible(g).length >= 2);
+      const g = owned[0] || state.groups.find(x => engine.eligible(x).length >= 2) || state.groups[0];
+      if (!g) { groupDraft.name = ""; return go("creategroup"); }
+      current = g;
+      if (round && round.state === "OPEN" && roundGroupId === g.id) return go("decide");
+      if (!g.owner) { go("group"); return render(); }
+      startRound(g); return render();
+    }
+    case "surprise": {
+      const g = state.groups.find(g2 => engine.eligible(g2).length) || state.groups[0];
+      if (!g) { groupDraft.name = ""; return go("creategroup"); }
+      current = g; surprisePick = null; return go("surprise");
+    }
+    case "skip": {
+      const pool = engine.eligible(current).filter(i => !surprisePick || i.id !== surprisePick.id);
+      surprisePick = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+      toast("Skipped — here is another one.");
+      return render();
+    }
+    case "accept": planned = surprisePick; return go("plan");
+    case "plan":   planned = round && round.winnerId && roundGroup()
+                     ? roundGroup().ideas.find(i => i.id === round.winnerId) : planned; return go("plan");
+    case "memory": planned = round && round.winnerId && roundGroup()
+                     ? roundGroup().ideas.find(i => i.id === round.winnerId) : planned; return go("plan");
+    case "save-plan":
+      queue("plan") ? toast("Plan saved on this device — it will sync when you reconnect.")
+                    : toast("Plan saved. 🎉");
+      return go("home");
+    case "complete": {
+      const idea = planned || (round && round.winnerId && roundGroup()
+        ? roundGroup().ideas.find(i => i.id === round.winnerId) : null);
+      if (idea) {
+        state.memories.unshift({ id:"m" + Date.now(), group:current ? current.id : null,
+          groupName:current ? current.name : "", title:idea.title, icon:idea.icon, when:"just now",
+          rating:5, caption:"That night we finally made it.", photos:2 });
+        idea.status = "COMPLETED";
+        if (state.settings.deadlines)
+          notify("🏆", `${idea.title} is done`, "Saved to Memories — add a caption and a rating.", "WINNER");
+        queue("memory") ? toast("Saved to Memories offline.") : toast("Nice one — saved to Memories.");
+      }
+      return go("memories");
+    }
+    case "add-photo": {
+      const m = state.memories.find(x => x.id === currentMemoryId);
+      if (m) { m.photos++; queue("memory"); toast("Photo added."); }
+      return render();
+    }
+    case "save-profile": {
+      state.user.name = profileDraft.name.trim() || state.user.name;
+      state.user.username = profileDraft.username.trim().replace(/^@/, "") || state.user.username;
+      queue(); toast("Profile saved."); return go("profile");
+    }
+    case "pick-photo": state.user.photo = !state.user.photo; return render();
+    case "link": {
+      state.settings.linked = state.settings.linked.includes("Google") ? [] : ["Google"];
+      toast(state.settings.linked.length ? "Google linked." : "Google unlinked.");
+      return render();
+    }
+    case "save-password": return toast("Password updated — stored as a salted hash.");
+    case "keep-mine":   conflict = null; queued = 0; toast("Kept your version and synced it."); return render();
+    case "keep-theirs": conflict = null; queued = 0; toast("Kept their version — your change was dropped."); return render();
+    case "read-all": state.notifications.forEach(n => n.read = true); return render();
+    case "reconnect": offline = false; return queued ? syncNow() : render();
+    case "soon": return toast("In the real app this opens the screen from the design document.");
+  }
+});
+
+/* Text fields keep their value across re-renders. */
+document.addEventListener("input", event => {
+  const field = event.target.dataset.field;
+  if (!field) return;
+  if (field === "groupname")   { groupDraft.name = event.target.value; }
+  if (field === "joincode")    { joinDraft = event.target.value; joinError = ""; }
+  if (field === "displayname") { profileDraft.name = event.target.value; }
+  if (field === "username")    { profileDraft.username = event.target.value; }
+  if (field === "caption")   {
+    const m = state.memories.find(x => x.id === currentMemoryId);
+    if (m) m.caption = event.target.value;
+  }
+  const create = document.querySelector('[data-action="create"]');
+  if (create) create.disabled = !groupDraft.name.trim();
+  const join = document.querySelector('[data-action="join"]');
+  if (join) join.disabled = !joinDraft.trim();
+});
+
+/* Airplane mode from the status bar. */
+const offlineTag = document.getElementById("offlineTag");
+offlineTag.addEventListener("click", () => {
+  offline = !offline;
+  if (offline) render(); else syncNow();
+});
+
+render();
+</script>
+</body>
+</html>

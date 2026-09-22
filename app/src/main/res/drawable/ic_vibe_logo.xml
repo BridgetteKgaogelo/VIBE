@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The VIBE mark: three nested chevrons in coral, lilac and mint. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="72dp"
+    android:height="72dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="@color/vibe_coral"
+        android:pathData="M22,30 L42,30 L54,74 L66,30 L86,30 L54,98 Z" />
+    <path
+        android:fillColor="@color/vibe_lilac"
+        android:pathData="M34.16,42.92 L46.56,42.92 L54,70.2 L61.44,42.92 L73.84,42.92 L54,85.08 Z" />
+    <path
+        android:fillColor="@color/vibe_mint"
+        android:pathData="M44.4,53.8 L50.4,53.8 L54,67 L57.6,53.8 L63.6,53.8 L54,74.2 Z" />
+</vector>

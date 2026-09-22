@@ -1,9 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Base.Theme.VIBEGAMINGAPP" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+    <!--
+      Light theme. The Compose layer owns the real colour system
+      (ui/theme/VibeTheme.kt); this XML theme only styles the window before
+      Compose draws, plus the splash window on older devices.
+    -->
+    <style name="Base.Theme.VIBE" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/vibe_coral</item>
+        <item name="colorSecondary">@color/vibe_lilac</item>
+        <item name="colorTertiary">@color/vibe_mint</item>
+        <item name="android:windowBackground">@color/vibe_blush</item>
+        <item name="android:statusBarColor">@color/vibe_blush</item>
+        <item name="android:navigationBarColor">@color/vibe_blush</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
     </style>
 
-    <style name="Theme.VIBEGAMINGAPP" parent="Base.Theme.VIBEGAMINGAPP" />
+    <style name="Theme.VIBE" parent="Base.Theme.VIBE" />
+
+    <style name="Theme.VIBE.Splash" parent="Theme.VIBE">
+        <item name="android:windowBackground">@color/vibe_navy</item>
+    </style>
 </resources>
