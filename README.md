@@ -107,14 +107,19 @@ pre-loaded, so the demo account is the only thing you begin with. It is a demo a
 of the build.
 
 ```bash
-cd prototype && npm install jsdom && node smoke.js   # asserts what each screen shows
+cd prototype && npm install jsdom && node smoke.js   # 93 checks: every screen, every flow
 ```
+
+`docs/ACCEPTANCE.md` records exactly what those checks cover, what is verified by
+inspection only (the Kotlin and C# cannot be compiled in every environment), and the three
+things the prototype deliberately fakes.
 
 ## Documentation
 
 * [`docs/SETUP.md`](docs/SETUP.md) - build, run, deploy, demonstrate
 * [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) - layers, data model, algorithm, offline sync, security
 * [`docs/API.md`](docs/API.md) - the REST contract, including the offline sync batch
+* [`docs/ACCEPTANCE.md`](docs/ACCEPTANCE.md) - what is executed, what is inspected, what is faked
 
 ## Team
 

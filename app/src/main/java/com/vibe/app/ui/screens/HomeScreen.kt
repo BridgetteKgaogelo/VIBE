@@ -278,7 +278,11 @@ fun HomeScreen(
                     title = stringResource(R.string.quick_decide_title),
                     body = stringResource(R.string.quick_decide_body),
                     accent = VibeLilac,
-                    onClick = { if (hasGroups) onDecideForUs() else onCreateGroup() },
+                    // "Can't Decide?" is the decision flow: it opens the group, where the
+                    // Vibe List and the owner's Start decision button live.
+                    onClick = {
+                        if (hasGroups) groups.firstOrNull()?.let { onOpenGroup(it.id) } else onCreateGroup()
+                    },
                 )
             }
             item {

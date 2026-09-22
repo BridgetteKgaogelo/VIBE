@@ -147,10 +147,10 @@ Set `ConnectionStrings__Vibe`, `Jwt__SigningKey`, `Jwt__Issuer`, `Fcm__ServerKey
 | Register / login / logout | Onboarding → Register; Profile → Settings → Sign out |
 | Google SSO | Login → *Continue with Google* (returns a verified id token to the API) |
 | Password recovery | Login → *Forgot password*; Settings → Change password |
-| Create / join group by invite code | Home → Create New Group / Join with code |
+| Create / join group by invite code | Home → Create New Group / Join with code (`prototype/index.html` shows the same flow, and any code you do not own opens a friend's group as a member) |
 | Manage group + activities | Group screen: members, Vibe List, add / edit / delete |
 | Owner starts a round | Group → *Start decision* (members see a clear "owner only" error) |
-| One YES/NO vote per member | Vote screen: one card, equal NO/YES buttons, results hidden until the round closes |
+| One YES/NO vote per member | Vote screen: one card, equal NO/YES buttons, results hidden until the round closes; in a joined group the other members answer after you |
 | Eliminations, winner, participation | Round indicator, "X of Y voted", eliminated options listed after the close |
 | Surprise Me | Home → Surprise Me: random eligible activity, accept or reject |
 | Plan with date + time | Winner → *Plan it* → date/time pickers |
@@ -179,7 +179,19 @@ python3 tools/check_strings.py          # see tools/, exits non-zero when a key 
 
 ---
 
-## 6. Troubleshooting
+## 6. Checking this repository without toolchains
+
+```bash
+python3 tools/check_strings.py                    # every R.string / R.plurals / R.array resolves, all 3 locales
+cd prototype && npm install jsdom && node smoke.js   # 93-behaviour acceptance walkthrough
+```
+
+`docs/ACCEPTANCE.md` maps each requirement in the design document to the screen, the file
+and the endpoint that implements it, and states what has been executed versus inspected.
+
+---
+
+## 7. Troubleshooting
 
 | Symptom | Fix |
 | --- | --- |
